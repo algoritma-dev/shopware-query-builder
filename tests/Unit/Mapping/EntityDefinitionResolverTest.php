@@ -212,7 +212,7 @@ class EntityDefinitionResolverTest extends TestCase
 
     private function createTestDefinition(): TestEntityDefinition
     {
-        return new TestEntityDefinition();
+        return new TestEntityDefinition($this->registry);
     }
 }
 
@@ -225,6 +225,16 @@ class TestEntityDefinition extends EntityDefinition
      * @var string
      */
     public const ENTITY_NAME = 'product';
+
+    public function __construct(DefinitionInstanceRegistry $registry)
+    {
+        parent::__construct();
+
+        // Initialize the registry property using reflection
+        $reflection = new \ReflectionClass(EntityDefinition::class);
+        $registryProperty = $reflection->getProperty('registry');
+        $registryProperty->setValue($this, $registry);
+    }
 
     public function getEntityName(): string
     {

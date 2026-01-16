@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Algoritma\ShopwareQueryBuilder\QueryBuilder;
 
+use Algoritma\ShopwareQueryBuilder\Filter\Expressions\GroupExpression;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\WhereExpression;
 use Algoritma\ShopwareQueryBuilder\Filter\FilterFactory;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
@@ -39,6 +40,9 @@ class CriteriaBuilder
         // Add sortings
         $this->addSortings($criteria, $queryBuilder);
 
+        // Add aggregations
+        $this->addAggregations($criteria, $queryBuilder);
+
         // Set limit and offset
         $this->setLimitAndOffset($criteria, $queryBuilder);
 
@@ -57,11 +61,7 @@ class CriteriaBuilder
         }
 
         $filters = array_map(
-            fn (WhereExpression $expr): Filter => $this->filterFactory->create(
-                $expr->getField(),
-                $expr->getOperator(),
-                $expr->getValue()
-            ),
+            $this->convertToFilter(...),
             $expressions
         );
 
@@ -72,6 +72,32 @@ class CriteriaBuilder
                 new MultiFilter(MultiFilter::CONNECTION_AND, $filters)
             );
         }
+    }
+
+    /**
+     * Convert expression to filter (handles both WhereExpression and GroupExpression).
+     */
+    private function convertToFilter(WhereExpression|GroupExpression $expression): Filter
+    {
+        if ($expression instanceof WhereExpression) {
+            return $this->filterFactory->create(
+                $expression->getField(),
+                $expression->getOperator(),
+                $expression->getValue()
+            );
+        }
+
+        // GroupExpression - create nested MultiFilter
+        $nestedFilters = array_map(
+            $this->convertToFilter(...),
+            $expression->getExpressions()
+        );
+
+        $connection = $expression->getOperator() === 'OR'
+            ? MultiFilter::CONNECTION_OR
+            : MultiFilter::CONNECTION_AND;
+
+        return new MultiFilter($connection, $nestedFilters);
     }
 
     /**
@@ -154,6 +180,18 @@ class CriteriaBuilder
                     $sorting['direction']
                 )
             );
+        }
+    }
+
+    /**
+     * Add aggregations.
+     */
+    private function addAggregations(Criteria $criteria, QueryBuilder $queryBuilder): void
+    {
+        $aggregations = $queryBuilder->getAggregations();
+
+        foreach ($aggregations as $aggregation) {
+            $criteria->addAggregation($aggregation);
         }
     }
 

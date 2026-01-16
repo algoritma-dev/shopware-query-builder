@@ -9,7 +9,7 @@ parameters:
 	ignoreErrors:
 		- identifier: symplify.multipleClassLikeInFile
 		- identifier: method.deprecated
-		  message: '#Call to deprecated method __construct\(\) of class Shopware\\Core\\Framework\\DataAbstractionLayer\\EntityDefinition#'
+		  message: '#Call to deprecated method __construct\(\) of class Algoritma\\ShopwareQueryBuilder\\Tests\\Unit\\Mapping\\TestEntityDefinition#'
 		- identifier: typePerfect.narrowPublicClassMethodParamType
 		  path: src/QueryBuilder/QueryBuilder.php
 		- identifier: typeCoverage.constantTypeCoverage

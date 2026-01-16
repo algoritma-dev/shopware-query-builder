@@ -6,15 +6,22 @@ namespace Algoritma\ShopwareQueryBuilder\QueryBuilder;
 
 use Algoritma\ShopwareQueryBuilder\Exception\EntityNotFoundException;
 use Algoritma\ShopwareQueryBuilder\Exception\InvalidAliasException;
+use Algoritma\ShopwareQueryBuilder\Filter\Expressions\GroupExpression;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\WhereExpression;
 use Algoritma\ShopwareQueryBuilder\Filter\FilterFactory;
 use Algoritma\ShopwareQueryBuilder\Mapping\AssociationResolver;
 use Algoritma\ShopwareQueryBuilder\Mapping\EntityDefinitionResolver;
 use Algoritma\ShopwareQueryBuilder\Mapping\PropertyResolver;
+use Algoritma\ShopwareQueryBuilder\Scope\ScopeInterface;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\Entity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Aggregation\Metric\AvgAggregation;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Aggregation\Metric\CountAggregation;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Aggregation\Metric\MaxAggregation;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Aggregation\Metric\MinAggregation;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Aggregation\Metric\SumAggregation;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\IdSearchResult;
@@ -33,7 +40,7 @@ class QueryBuilder
     private ?string $alias = null;
 
     /**
-     * @var WhereExpression[]
+     * @var array<WhereExpression|GroupExpression>
      */
     private array $whereExpressions = [];
 
@@ -64,6 +71,15 @@ class QueryBuilder
      * @var array<string, string> Map of alias => association path
      */
     private array $aliasMap = [];
+
+    /**
+     * @var array<string, CountAggregation|SumAggregation|AvgAggregation|MinAggregation|MaxAggregation>
+     */
+    private array $aggregations = [];
+
+    private bool $withTrashed = false;
+
+    private bool $onlyTrashed = false;
 
     /**
      * @var EntityRepository<EntityCollection<Entity>>|null
@@ -333,6 +349,230 @@ class QueryBuilder
         return $this->where($property, 'ends with', $value);
     }
 
+    // Aggregation methods
+
+    /**
+     * Add COUNT aggregation.
+     *
+     * @param string $name Aggregation name (default: 'count')
+     */
+    public function addCount(string $name = 'count'): self
+    {
+        $this->aggregations[$name] = new CountAggregation($name, 'id');
+
+        return $this;
+    }
+
+    /**
+     * Add SUM aggregation.
+     *
+     * @param string $field Field to sum
+     * @param string $name Aggregation name (default: 'sum')
+     */
+    public function addSum(string $field, string $name = 'sum'): self
+    {
+        $resolvedField = $this->resolvePropertyWithAlias($field);
+        $this->aggregations[$name] = new SumAggregation($name, $resolvedField);
+
+        return $this;
+    }
+
+    /**
+     * Add AVG aggregation.
+     *
+     * @param string $field Field to average
+     * @param string $name Aggregation name (default: 'avg')
+     */
+    public function addAvg(string $field, string $name = 'avg'): self
+    {
+        $resolvedField = $this->resolvePropertyWithAlias($field);
+        $this->aggregations[$name] = new AvgAggregation($name, $resolvedField);
+
+        return $this;
+    }
+
+    /**
+     * Add MIN aggregation.
+     *
+     * @param string $field Field to find minimum
+     * @param string $name Aggregation name (default: 'min')
+     */
+    public function addMin(string $field, string $name = 'min'): self
+    {
+        $resolvedField = $this->resolvePropertyWithAlias($field);
+        $this->aggregations[$name] = new MinAggregation($name, $resolvedField);
+
+        return $this;
+    }
+
+    /**
+     * Add MAX aggregation.
+     *
+     * @param string $field Field to find maximum
+     * @param string $name Aggregation name (default: 'max')
+     */
+    public function addMax(string $field, string $name = 'max'): self
+    {
+        $resolvedField = $this->resolvePropertyWithAlias($field);
+        $this->aggregations[$name] = new MaxAggregation($name, $resolvedField);
+
+        return $this;
+    }
+
+    // Grouping methods
+
+    /**
+     * Add grouped WHERE conditions (AND logic by default).
+     *
+     * @param callable $callback Callback that receives a sub-query builder
+     * @param string $operator 'AND' or 'OR' (default: 'AND')
+     */
+    public function whereGroup(callable $callback, string $operator = 'AND'): self
+    {
+        $subQuery = new self(
+            $this->entityClass,
+            $this->definitionResolver,
+            $this->propertyResolver,
+            $this->associationResolver,
+            $this->filterFactory
+        );
+
+        // Copy alias map to sub-query
+        $subQuery->aliasMap = $this->aliasMap;
+
+        $callback($subQuery);
+
+        $this->whereExpressions[] = new GroupExpression(
+            $subQuery->getWhereExpressions(),
+            strtoupper($operator)
+        );
+
+        return $this;
+    }
+
+    /**
+     * Add grouped WHERE conditions with OR logic.
+     *
+     * @param callable $callback Callback that receives a sub-query builder
+     */
+    public function orWhereGroup(callable $callback): self
+    {
+        return $this->whereGroup($callback, 'OR');
+    }
+
+    // Scope methods
+
+    /**
+     * Apply a scope to the query.
+     */
+    public function scope(ScopeInterface $scope): self
+    {
+        $scope->apply($this);
+
+        return $this;
+    }
+
+    /**
+     * Apply multiple scopes to the query.
+     *
+     * @param ScopeInterface[] $scopes
+     */
+    public function scopes(array $scopes): self
+    {
+        foreach ($scopes as $scope) {
+            $this->scope($scope);
+        }
+
+        return $this;
+    }
+
+    // Soft Deletes methods
+
+    /**
+     * Include soft-deleted entities in results.
+     */
+    public function withTrashed(): self
+    {
+        $this->withTrashed = true;
+
+        return $this;
+    }
+
+    /**
+     * Return only soft-deleted entities.
+     */
+    public function onlyTrashed(): self
+    {
+        $this->onlyTrashed = true;
+
+        return $this;
+    }
+
+    /**
+     * Exclude soft-deleted entities (default behavior).
+     */
+    public function withoutTrashed(): self
+    {
+        $this->withTrashed = false;
+        $this->onlyTrashed = false;
+
+        return $this;
+    }
+
+    // Debugging methods
+
+    /**
+     * Enable debug mode (prints query info on execution).
+     */
+    public function debug(): self
+    {
+        return $this;
+    }
+
+    /**
+     * Dump query information and continue execution.
+     */
+    public function dump(): self
+    {
+        $this->dumpQueryInfo();
+
+        return $this;
+    }
+
+    /**
+     * Dump query information and die.
+     */
+    public function dd(): never
+    {
+        $this->dumpQueryInfo();
+        exit(1);
+    }
+
+    /**
+     * Export query as array (for debugging/inspection).
+     *
+     * @return array{entity: string, alias: string|null, where: array<int, array<string, mixed>>, orWhere: array<int, array<int, array<string, mixed>>>, with: array<int, string>, orderBy: array<int, array{field: string, direction: string}>, limit: int|null, offset: int|null, aggregations: array<int, string>, withTrashed: bool, onlyTrashed: bool}
+     */
+    public function toDebugArray(): array
+    {
+        return [
+            'entity' => $this->entityClass,
+            'alias' => $this->alias,
+            'where' => $this->formatExpressionsForDebug($this->whereExpressions),
+            'orWhere' => array_map(
+                $this->formatExpressionsForDebug(...),
+                $this->orWhereGroups
+            ),
+            'with' => array_keys($this->associations),
+            'orderBy' => $this->sortings,
+            'limit' => $this->limit,
+            'offset' => $this->offset,
+            'aggregations' => array_keys($this->aggregations),
+            'withTrashed' => $this->withTrashed,
+            'onlyTrashed' => $this->onlyTrashed,
+        ];
+    }
+
     // Execution methods
 
     /**
@@ -489,6 +729,9 @@ class QueryBuilder
      */
     public function toCriteria(): Criteria
     {
+        // Apply soft delete filters automatically
+        $this->applySoftDeleteFilters();
+
         $builder = new CriteriaBuilder($this->filterFactory);
 
         return $builder->build($this);
@@ -551,6 +794,110 @@ class QueryBuilder
     public function getPerPage(): ?int
     {
         return $this->perPage;
+    }
+
+    /**
+     * @return array<string, CountAggregation|SumAggregation|AvgAggregation|MinAggregation|MaxAggregation>
+     */
+    public function getAggregations(): array
+    {
+        return $this->aggregations;
+    }
+
+    /**
+     * Format expressions for debug output.
+     *
+     * @param array<WhereExpression|GroupExpression> $expressions
+     *
+     * @return array<int, array{field?: string, operator?: string, value?: mixed, type?: string, group?: array<int, array<string, mixed>>}>
+     */
+    private function formatExpressionsForDebug(array $expressions): array
+    {
+        return array_map(function (GroupExpression|WhereExpression $expr): array {
+            if ($expr instanceof GroupExpression) {
+                return [
+                    'type' => 'group',
+                    'operator' => $expr->getOperator(),
+                    'group' => $this->formatExpressionsForDebug($expr->getExpressions()),
+                ];
+            }
+
+            return [
+                'field' => $expr->getField(),
+                'operator' => $expr->getOperator(),
+                'value' => $expr->getValue(),
+            ];
+        }, $expressions);
+    }
+
+    /**
+     * Print query information to output.
+     */
+    private function dumpQueryInfo(): void
+    {
+        $data = $this->toDebugArray();
+
+        echo "\n=== Query Builder Debug ===\n";
+        echo "Entity: {$data['entity']}\n";
+
+        if ($data['alias'] !== null) {
+            echo "Alias: {$data['alias']}\n";
+        }
+
+        if ($data['where'] !== []) {
+            echo "\nWHERE Conditions:\n";
+            print_r($data['where']);
+        }
+
+        if ($data['orWhere'] !== []) {
+            echo "\nOR WHERE Groups:\n";
+            print_r($data['orWhere']);
+        }
+
+        if ($data['with'] !== []) {
+            echo "\nAssociations: " . implode(', ', $data['with']) . "\n";
+        }
+
+        if ($data['orderBy'] !== []) {
+            echo "\nOrder By:\n";
+            foreach ($data['orderBy'] as $sorting) {
+                echo "  - {$sorting['field']} {$sorting['direction']}\n";
+            }
+        }
+
+        if ($data['aggregations'] !== []) {
+            echo "\nAggregations: " . implode(', ', $data['aggregations']) . "\n";
+        }
+
+        if ($data['limit'] !== null) {
+            echo "\nLimit: {$data['limit']}\n";
+        }
+
+        if ($data['offset'] !== null) {
+            echo "Offset: {$data['offset']}\n";
+        }
+
+        if ($data['withTrashed']) {
+            echo "\nWith Trashed: Yes\n";
+        }
+
+        if ($data['onlyTrashed']) {
+            echo "Only Trashed: Yes\n";
+        }
+
+        echo "===========================\n\n";
+    }
+
+    /**
+     * Apply soft delete filters based on flags.
+     */
+    private function applySoftDeleteFilters(): void
+    {
+        if ($this->onlyTrashed) {
+            $this->whereNotNull('deletedAt');
+        } elseif (! $this->withTrashed) {
+            $this->whereNull('deletedAt');
+        }
     }
 
     // Private helper methods

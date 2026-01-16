@@ -181,4 +181,62 @@ class CriteriaBuilderTest extends TestCase
         $this->assertSame(20, $criteria->getLimit());
         $this->assertSame(40, $criteria->getOffset());
     }
+
+    // Aggregation tests
+
+    public function testBuildWithAggregations(): void
+    {
+        $this->queryBuilder->addCount('totalProducts');
+
+        $criteria = $this->criteriaBuilder->build($this->queryBuilder);
+
+        $aggregations = $criteria->getAggregations();
+
+        $this->assertCount(1, $aggregations);
+    }
+
+    public function testBuildWithMultipleAggregations(): void
+    {
+        $this->queryBuilder
+            ->addCount('total')
+            ->addSum('stock', 'totalStock')
+            ->addAvg('price', 'avgPrice');
+
+        $criteria = $this->criteriaBuilder->build($this->queryBuilder);
+
+        $aggregations = $criteria->getAggregations();
+
+        $this->assertCount(3, $aggregations);
+    }
+
+    // Group tests
+
+    public function testBuildWithWhereGroup(): void
+    {
+        $this->queryBuilder->whereGroup(function (QueryBuilder $q): void {
+            $q->where('stock', '>', 10)
+                ->where('active', true);
+        });
+
+        $criteria = $this->criteriaBuilder->build($this->queryBuilder);
+
+        $this->assertCount(1, $criteria->getFilters());
+    }
+
+    public function testBuildWithNestedGroups(): void
+    {
+        $this->queryBuilder
+            ->where('active', true)
+            ->whereGroup(function (QueryBuilder $q): void {
+                $q->where('stock', '>', 0)
+                    ->orWhereGroup(function (QueryBuilder $nested): void {
+                        $nested->where('featured', true);
+                    });
+            });
+
+        $criteria = $this->criteriaBuilder->build($this->queryBuilder);
+
+        $this->assertInstanceOf(Criteria::class, $criteria);
+        $this->assertCount(1, $criteria->getFilters());
+    }
 }

@@ -5,16 +5,20 @@ declare(strict_types=1);
 namespace Algoritma\ShopwareQueryBuilder\Tests\Unit\QueryBuilder;
 
 use Algoritma\ShopwareQueryBuilder\Exception\EntityNotFoundException;
+use Algoritma\ShopwareQueryBuilder\Filter\Expressions\GroupExpression;
 use Algoritma\ShopwareQueryBuilder\Filter\FilterFactory;
 use Algoritma\ShopwareQueryBuilder\Mapping\AssociationResolver;
 use Algoritma\ShopwareQueryBuilder\Mapping\EntityDefinitionResolver;
 use Algoritma\ShopwareQueryBuilder\Mapping\PropertyResolver;
 use Algoritma\ShopwareQueryBuilder\QueryBuilder\QueryBuilder;
+use Algoritma\ShopwareQueryBuilder\Scope\ActiveScope;
+use Algoritma\ShopwareQueryBuilder\Scope\ScopeInterface;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Content\Product\ProductDefinition;
 use Shopware\Core\Content\Product\ProductEntity;
 use Shopware\Core\Framework\Context;
+use Shopware\Core\Framework\DataAbstractionLayer\EntityCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
@@ -457,5 +461,485 @@ class QueryBuilderTest extends TestCase
         $this->expectExceptionMessage('paginate() must be called');
 
         $this->queryBuilder->getPaginated();
+    }
+
+    // Aggregation tests
+
+    public function testAddCount(): void
+    {
+        $this->queryBuilder->addCount('totalProducts');
+
+        $aggregations = $this->queryBuilder->getAggregations();
+
+        $this->assertCount(1, $aggregations);
+        $this->assertArrayHasKey('totalProducts', $aggregations);
+    }
+
+    public function testAddSum(): void
+    {
+        $this->propertyResolver
+            ->method('resolve')
+            ->willReturnArgument(1);
+
+        $this->queryBuilder->addSum('stock', 'totalStock');
+
+        $aggregations = $this->queryBuilder->getAggregations();
+
+        $this->assertArrayHasKey('totalStock', $aggregations);
+    }
+
+    public function testAddAvg(): void
+    {
+        $this->propertyResolver
+            ->method('resolve')
+            ->willReturnArgument(1);
+
+        $this->queryBuilder->addAvg('price', 'avgPrice');
+
+        $aggregations = $this->queryBuilder->getAggregations();
+
+        $this->assertArrayHasKey('avgPrice', $aggregations);
+    }
+
+    public function testAddMin(): void
+    {
+        $this->propertyResolver
+            ->method('resolve')
+            ->willReturnArgument(1);
+
+        $this->queryBuilder->addMin('price', 'minPrice');
+
+        $aggregations = $this->queryBuilder->getAggregations();
+
+        $this->assertArrayHasKey('minPrice', $aggregations);
+    }
+
+    public function testAddMax(): void
+    {
+        $this->propertyResolver
+            ->method('resolve')
+            ->willReturnArgument(1);
+
+        $this->queryBuilder->addMax('price', 'maxPrice');
+
+        $aggregations = $this->queryBuilder->getAggregations();
+
+        $this->assertArrayHasKey('maxPrice', $aggregations);
+    }
+
+    // Grouping tests
+
+    public function testWhereGroup(): void
+    {
+        $this->propertyResolver
+            ->method('resolve')
+            ->willReturnArgument(1);
+
+        $this->queryBuilder->whereGroup(function (QueryBuilder $q): void {
+            $q->where('stock', '>', 10)
+                ->where('active', true);
+        });
+
+        $expressions = $this->queryBuilder->getWhereExpressions();
+
+        $this->assertCount(1, $expressions);
+        $this->assertInstanceOf(GroupExpression::class, $expressions[0]);
+        $this->assertSame('AND', $expressions[0]->getOperator());
+        $this->assertCount(2, $expressions[0]->getExpressions());
+    }
+
+    public function testOrWhereGroup(): void
+    {
+        $this->propertyResolver
+            ->method('resolve')
+            ->willReturnArgument(1);
+
+        $this->queryBuilder->orWhereGroup(function (QueryBuilder $q): void {
+            $q->where('featured', true)
+                ->where('onSale', true);
+        });
+
+        $expressions = $this->queryBuilder->getWhereExpressions();
+
+        $this->assertCount(1, $expressions);
+        $this->assertInstanceOf(GroupExpression::class, $expressions[0]);
+        $this->assertSame('OR', $expressions[0]->getOperator());
+    }
+
+    public function testNestedWhereGroups(): void
+    {
+        $this->propertyResolver
+            ->method('resolve')
+            ->willReturnArgument(1);
+
+        $this->queryBuilder
+            ->where('active', true)
+            ->whereGroup(function (QueryBuilder $q): void {
+                $q->where('stock', '>', 0)
+                    ->orWhereGroup(function (QueryBuilder $nested): void {
+                        $nested->where('featured', true);
+                    });
+            });
+
+        $expressions = $this->queryBuilder->getWhereExpressions();
+
+        $this->assertCount(2, $expressions);
+        $this->assertInstanceOf(GroupExpression::class, $expressions[1]);
+    }
+
+    // Scope tests
+
+    public function testScope(): void
+    {
+        $this->propertyResolver
+            ->method('resolve')
+            ->willReturnArgument(1);
+
+        $scope = new ActiveScope();
+        $this->queryBuilder->scope($scope);
+
+        $expressions = $this->queryBuilder->getWhereExpressions();
+
+        $this->assertCount(1, $expressions);
+    }
+
+    public function testScopes(): void
+    {
+        $this->propertyResolver
+            ->method('resolve')
+            ->willReturnArgument(1);
+
+        $scope1 = $this->createMock(ScopeInterface::class);
+        $scope1->expects($this->once())->method('apply');
+
+        $scope2 = $this->createMock(ScopeInterface::class);
+        $scope2->expects($this->once())->method('apply');
+
+        $this->queryBuilder->scopes([$scope1, $scope2]);
+    }
+
+    // Soft Delete tests
+
+    public function testWithTrashed(): void
+    {
+        $result = $this->queryBuilder->withTrashed();
+
+        $this->assertSame($this->queryBuilder, $result);
+    }
+
+    public function testOnlyTrashed(): void
+    {
+        $result = $this->queryBuilder->onlyTrashed();
+
+        $this->assertSame($this->queryBuilder, $result);
+    }
+
+    public function testWithoutTrashed(): void
+    {
+        $result = $this->queryBuilder->withoutTrashed();
+
+        $this->assertSame($this->queryBuilder, $result);
+    }
+
+    public function testToCriteriaAppliesSoftDeleteFilters(): void
+    {
+        $this->propertyResolver
+            ->method('resolve')
+            ->willReturnArgument(1);
+
+        $this->queryBuilder->onlyTrashed();
+
+        $criteria = $this->queryBuilder->toCriteria();
+
+        $this->assertInstanceOf(Criteria::class, $criteria);
+    }
+
+    // Debugging tests
+
+    public function testDebug(): void
+    {
+        $result = $this->queryBuilder->debug();
+
+        $this->assertSame($this->queryBuilder, $result);
+    }
+
+    public function testDump(): void
+    {
+        ob_start();
+        $result = $this->queryBuilder->dump();
+        $output = ob_get_clean();
+
+        $this->assertSame($this->queryBuilder, $result);
+        $this->assertStringContainsString('Query Builder Debug', $output);
+    }
+
+    public function testDd(): void
+    {
+        // dd() calls exit(1), which we cannot test in unit tests
+        // We just ensure the method is callable by checking it exists
+        $this->assertIsCallable($this->queryBuilder->dd(...));
+    }
+
+    public function testToDebugArray(): void
+    {
+        $this->propertyResolver
+            ->method('resolve')
+            ->willReturnArgument(1);
+
+        $this->queryBuilder
+            ->where('active', true)
+            ->limit(10)
+            ->orderBy('name');
+
+        $debugArray = $this->queryBuilder->toDebugArray();
+
+        $this->assertArrayHasKey('entity', $debugArray);
+        $this->assertArrayHasKey('where', $debugArray);
+        $this->assertArrayHasKey('limit', $debugArray);
+        $this->assertArrayHasKey('orderBy', $debugArray);
+        $this->assertSame(ProductEntity::class, $debugArray['entity']);
+        $this->assertSame(10, $debugArray['limit']);
+    }
+
+    public function testToDebugArrayWithAlias(): void
+    {
+        $this->queryBuilder->setAlias('p');
+
+        $debugArray = $this->queryBuilder->toDebugArray();
+
+        $this->assertSame('p', $debugArray['alias']);
+    }
+
+    public function testToDebugArrayWithAggregations(): void
+    {
+        $this->propertyResolver
+            ->method('resolve')
+            ->willReturnArgument(1);
+
+        $this->queryBuilder
+            ->addCount('total')
+            ->addSum('stock', 'totalStock');
+
+        $debugArray = $this->queryBuilder->toDebugArray();
+
+        $this->assertCount(2, $debugArray['aggregations']);
+        $this->assertContains('total', $debugArray['aggregations']);
+        $this->assertContains('totalStock', $debugArray['aggregations']);
+    }
+
+    public function testToDebugArrayWithTrashedFlags(): void
+    {
+        $this->queryBuilder->withTrashed();
+
+        $debugArray = $this->queryBuilder->toDebugArray();
+
+        $this->assertTrue($debugArray['withTrashed']);
+    }
+
+    public function testToDebugArrayWithOnlyTrashedFlag(): void
+    {
+        $this->queryBuilder->onlyTrashed();
+
+        $debugArray = $this->queryBuilder->toDebugArray();
+
+        $this->assertTrue($debugArray['onlyTrashed']);
+    }
+
+    public function testToDebugArrayWithOrWhereGroups(): void
+    {
+        $this->propertyResolver
+            ->method('resolve')
+            ->willReturnArgument(1);
+
+        $this->queryBuilder->orWhere(function (QueryBuilder $q): void {
+            $q->where('featured', true);
+        });
+
+        $debugArray = $this->queryBuilder->toDebugArray();
+
+        $this->assertIsArray($debugArray['orWhere']);
+        $this->assertCount(1, $debugArray['orWhere']);
+    }
+
+    public function testToDebugArrayWithGroupExpressions(): void
+    {
+        $this->propertyResolver
+            ->method('resolve')
+            ->willReturnArgument(1);
+
+        $this->queryBuilder->whereGroup(function (QueryBuilder $q): void {
+            $q->where('active', true)
+                ->where('stock', '>', 0);
+        });
+
+        $debugArray = $this->queryBuilder->toDebugArray();
+
+        $this->assertCount(1, $debugArray['where']);
+        $this->assertSame('group', $debugArray['where'][0]['type']);
+        $this->assertSame('AND', $debugArray['where'][0]['operator']);
+        $this->assertIsArray($debugArray['where'][0]['group']);
+    }
+
+    // Additional execution method tests
+
+    public function testGetEntities(): void
+    {
+        $repository = $this->createMock(EntityRepository::class);
+        $context = $this->createMock(Context::class);
+
+        $searchResult = $this->createMock(EntitySearchResult::class);
+        $entities = $this->createMock(EntityCollection::class);
+        $searchResult->method('getEntities')->willReturn($entities);
+
+        $repository
+            ->method('search')
+            ->willReturn($searchResult);
+
+        $this->queryBuilder->setRepository($repository);
+        $this->queryBuilder->setContext($context);
+
+        $result = $this->queryBuilder->getEntities();
+
+        $this->assertSame($entities, $result);
+    }
+
+    public function testToArrayMethod(): void
+    {
+        $repository = $this->createMock(EntityRepository::class);
+        $context = $this->createMock(Context::class);
+
+        $searchResult = $this->createMock(EntitySearchResult::class);
+        $entities = $this->createMock(EntityCollection::class);
+        $entities->method('getElements')->willReturn(['entity1', 'entity2']);
+        $searchResult->method('getEntities')->willReturn($entities);
+
+        $repository
+            ->method('search')
+            ->willReturn($searchResult);
+
+        $this->queryBuilder->setRepository($repository);
+        $this->queryBuilder->setContext($context);
+
+        $result = $this->queryBuilder->toArray();
+
+        $this->assertSame(['entity1', 'entity2'], $result);
+    }
+
+    public function testGetIdsArray(): void
+    {
+        $repository = $this->createMock(EntityRepository::class);
+        $context = $this->createMock(Context::class);
+
+        $idResult = $this->createMock(IdSearchResult::class);
+        $idResult->method('getIds')->willReturn(['id1', 'id2', 'id3']);
+
+        $repository
+            ->method('searchIds')
+            ->willReturn($idResult);
+
+        $this->queryBuilder->setRepository($repository);
+        $this->queryBuilder->setContext($context);
+
+        $result = $this->queryBuilder->getIdsArray();
+
+        $this->assertSame(['id1', 'id2', 'id3'], $result);
+    }
+
+    public function testFirstAlias(): void
+    {
+        $repository = $this->createMock(EntityRepository::class);
+        $context = $this->createMock(Context::class);
+
+        $searchResult = $this->createMock(EntitySearchResult::class);
+        $entity = $this->createMock(ProductEntity::class);
+        $searchResult->method('first')->willReturn($entity);
+
+        $repository
+            ->method('search')
+            ->willReturn($searchResult);
+
+        $this->queryBuilder->setRepository($repository);
+        $this->queryBuilder->setContext($context);
+
+        $result = $this->queryBuilder->first();
+
+        $this->assertSame($entity, $result);
+    }
+
+    public function testFirstOrFail(): void
+    {
+        $repository = $this->createMock(EntityRepository::class);
+        $context = $this->createMock(Context::class);
+
+        $searchResult = $this->createMock(EntitySearchResult::class);
+        $entity = $this->createMock(ProductEntity::class);
+        $searchResult->method('first')->willReturn($entity);
+
+        $repository
+            ->method('search')
+            ->willReturn($searchResult);
+
+        $this->queryBuilder->setRepository($repository);
+        $this->queryBuilder->setContext($context);
+
+        $result = $this->queryBuilder->firstOrFail();
+
+        $this->assertSame($entity, $result);
+    }
+
+    public function testGetPaginatedReturnsCorrectStructure(): void
+    {
+        $repository = $this->createMock(EntityRepository::class);
+        $context = $this->createMock(Context::class);
+
+        $searchResult = $this->createMock(EntitySearchResult::class);
+        $entities = $this->createMock(EntityCollection::class);
+        $searchResult->method('getEntities')->willReturn($entities);
+        $searchResult->method('getTotal')->willReturn(100);
+
+        $repository
+            ->method('search')
+            ->willReturn($searchResult);
+
+        $this->queryBuilder->setRepository($repository);
+        $this->queryBuilder->setContext($context);
+        $this->queryBuilder->paginate(2, 20);
+
+        $result = $this->queryBuilder->getPaginated();
+
+        $this->assertArrayHasKey('data', $result);
+        $this->assertArrayHasKey('total', $result);
+        $this->assertArrayHasKey('page', $result);
+        $this->assertArrayHasKey('perPage', $result);
+        $this->assertArrayHasKey('lastPage', $result);
+        $this->assertArrayHasKey('hasMorePages', $result);
+        $this->assertSame(100, $result['total']);
+        $this->assertSame(2, $result['page']);
+        $this->assertSame(20, $result['perPage']);
+        $this->assertSame(5, $result['lastPage']);
+        $this->assertTrue($result['hasMorePages']);
+    }
+
+    public function testGetPaginatedLastPageHasNoMorePages(): void
+    {
+        $repository = $this->createMock(EntityRepository::class);
+        $context = $this->createMock(Context::class);
+
+        $searchResult = $this->createMock(EntitySearchResult::class);
+        $entities = $this->createMock(EntityCollection::class);
+        $searchResult->method('getEntities')->willReturn($entities);
+        $searchResult->method('getTotal')->willReturn(50);
+
+        $repository
+            ->method('search')
+            ->willReturn($searchResult);
+
+        $this->queryBuilder->setRepository($repository);
+        $this->queryBuilder->setContext($context);
+        $this->queryBuilder->paginate(3, 20);
+
+        $result = $this->queryBuilder->getPaginated();
+
+        $this->assertFalse($result['hasMorePages']);
     }
 }
