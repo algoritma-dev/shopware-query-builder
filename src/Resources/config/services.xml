@@ -1,0 +1,28 @@
+<?xml version="1.0" ?>
+<container xmlns="http://symfony.com/schema/dic/services"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:schemaLocation="http://symfony.com/schema/dic/services http://symfony.com/schema/dic/services/services-1.0.xsd">
+
+    <services>
+        <!-- EntityDefinitionResolver -->
+        <service id="Algoritma\ShopwareQueryBuilder\Mapping\EntityDefinitionResolver">
+            <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry"/>
+        </service>
+
+        <!-- PropertyResolver -->
+        <service id="Algoritma\ShopwareQueryBuilder\Mapping\PropertyResolver">
+            <argument type="service" id="Algoritma\ShopwareQueryBuilder\Mapping\EntityDefinitionResolver"/>
+        </service>
+
+        <!-- AssociationResolver -->
+        <service id="Algoritma\ShopwareQueryBuilder\Mapping\AssociationResolver">
+            <argument type="service" id="Algoritma\ShopwareQueryBuilder\Mapping\EntityDefinitionResolver"/>
+        </service>
+
+        <!-- QueryBuilderFactory -->
+        <service id="Algoritma\ShopwareQueryBuilder\QueryBuilder\QueryBuilderFactory" public="true">
+            <argument type="service" id="Algoritma\ShopwareQueryBuilder\Mapping\EntityDefinitionResolver"/>
+            <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry"/>
+        </service>
+    </services>
+</container>

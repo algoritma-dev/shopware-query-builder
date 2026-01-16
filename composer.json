@@ -1,0 +1,66 @@
+{
+    "name": "algoritma/shopware-query-builder",
+    "description": "Fluent Query Builder for Shopware 6 - Intuitive, type-safe, and maintainable query construction",
+    "type": "shopware-bundle",
+    "license": "MIT",
+    "keywords": [
+        "shopware",
+        "query-builder",
+        "fluent",
+        "shopware6",
+        "dal"
+    ],
+    "authors": [
+        {
+            "name": "Algoritma srl",
+            "email": "info@algoritma.it"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "shopware/core": "~6.7.0"
+    },
+    "require-dev": {
+        "algoritma/php-coding-standards": "^3.0",
+        "frosh/shopware-rector": "^0.5.9",
+        "phpunit/phpunit": "^11.0",
+        "symfony/var-dumper": "^6.4|^7.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Algoritma\\ShopwareQueryBuilder\\": "src/"
+        },
+        "files": [
+            "src/helpers.php"
+        ],
+        "exclude-from-classmap": [
+            "/Tests/"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Algoritma\\ShopwareQueryBuilder\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "shopware-bundle-class": "Algoritma\\ShopwareQueryBuilder\\ShopwareQueryBuilderBundle"
+    },
+    "config": {
+        "sort-packages": true,
+        "optimize-autoloader": true,
+        "allow-plugins": {
+            "algoritma/php-coding-standards": true,
+            "phpstan/extension-installer": true,
+            "symfony/runtime": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "scripts": {
+        "cs-check": "php-cs-fixer fix --dry-run --diff",
+        "cs-fix": "php-cs-fixer fix --diff",
+        "rector-check": "rector process --dry-run",
+        "rector-fix": "rector process",
+        "phpstan": "phpstan analyze --memory-limit=-1"
+    }
+}
