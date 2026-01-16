@@ -24,7 +24,7 @@ class ShopwareQueryBuilderBundle extends Bundle
         global $queryHelperServiceLocator;
 
         if ($queryHelperServiceLocator === null && $container instanceof ContainerInterface) {
-            $queryHelperServiceLocator = $container->get('carelle.query_builder.service_locator');
+            $queryHelperServiceLocator = $container->get('algoritma.query_builder.service_locator');
         }
     }
 

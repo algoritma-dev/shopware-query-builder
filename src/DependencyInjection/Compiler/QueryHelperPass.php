@@ -15,7 +15,7 @@ class QueryHelperPass implements CompilerPassInterface
     public function process(ContainerBuilder $container): void
     {
         // Create a service locator with only the services needed by the helper
-        $container->register('carelle.query_builder.service_locator', ServiceLocator::class)
+        $container->register('algoritma.query_builder.service_locator', ServiceLocator::class)
             ->setPublic(true)
             ->setArguments([[
                 'query_factory' => new Reference(QueryBuilderFactory::class),
