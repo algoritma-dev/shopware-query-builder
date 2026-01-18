@@ -161,21 +161,6 @@ composer require yourvendor/shopware-query-builder
   - Best Practices
   - Complete API Reference
 
-- **[HELPER_FUNCTION.md](HELPER_FUNCTION.md)** - Guide to the function `sw_query()`
-  - All available methods
-  - Usage examples
-  - Automatic repository
-
-- **[WITH_ALIAS_SUPPORT.md](WITH_ALIAS_SUPPORT.md)** - Aliases in associations
-  - Linear queries vs callbacks
-  - Complex examples
-  - Best Practices
-
-- **[CRITICITA_E_SOLUZIONI.md](CRITICITA_E_SOLUZIONI.md)** - Technical analysis
-  - Resolved issues
-  - Implemented solutions
-  - EntityDefinitionResolver
-
 ## 🎨 Examples
 
 ### Example 1: Product List
