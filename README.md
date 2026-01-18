@@ -27,7 +27,7 @@ $products = sw_query(ProductEntity::class, 'p')
 // Get single entity
 $product = sw_query(ProductEntity::class)
     ->where('id', $productId)
-    ->getOneOrThrow();
+    ->firstOrFail();
 
 // Check existence
 $exists = sw_query(ProductEntity::class)
@@ -197,7 +197,7 @@ public function detail(string $id): Response
             ->with('categories', 'c')
             ->where('c.visible', true)
             ->with('media.media')
-            ->getOneOrThrow();
+            ->firstOrFail();
     } catch (EntityNotFoundException $e) {
         throw $this->createNotFoundException();
     }
