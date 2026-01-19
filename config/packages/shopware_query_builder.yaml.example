@@ -1,0 +1,10 @@
+# Example configuration for Shopware Query Builder with attribute-based entities
+
+shopware_query_builder:
+  # Register entity name mappings for attribute-based entities
+  # Use this to support entities created via PHP 8 attributes
+  # that don't follow the traditional Entity -> Definition naming convention
+  attribute_entities:
+    # Example: Map CustomProductEntity to the 'custom_product' entity name
+    # 'YourPlugin\Entities\CustomProductEntity': 'custom_product'
+    # 'YourPlugin\Entities\CustomCategoryEntity': 'custom_category'

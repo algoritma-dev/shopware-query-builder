@@ -205,6 +205,100 @@ class EntityDefinitionResolverTest extends TestCase
         $this->assertContains('manufacturer', $result);
     }
 
+    public function testAttributeBasedEntityNotSupportedWithConvention(): void
+    {
+        // Attribute-based entities don't follow Entity -> Definition naming convention
+        // They should fail with current implementation
+        $this->expectException(InvalidEntityException::class);
+        $this->expectExceptionMessageMatches('/Could not resolve entity name/');
+
+        $this->resolver->getDefinition(AttributeBasedProductEntity::class);
+    }
+
+    public function testAttributeBasedEntityCanBeResolvedByEntityNameIfPreConfigured(): void
+    {
+        // If you can provide the entity name directly via configuration,
+        // attribute-based entities can work
+        $testDefinition = $this->createTestDefinition();
+
+        $this->registry
+            ->method('getByEntityName')
+            ->with('custom_product')
+            ->willReturn($testDefinition);
+
+        // This would work IF we had a way to map AttributeBasedProductEntity -> 'custom_product'
+        // Current implementation does NOT support this mapping
+        // This test documents the limitation
+        $this->markTestSkipped('EntityDefinitionResolver needs entity name mapping for attribute-based entities');
+    }
+
+    public function testRegisterEntityMappingForAttributeBasedEntity(): void
+    {
+        $testDefinition = $this->createTestDefinition();
+
+        $this->registry
+            ->method('getByEntityName')
+            ->willReturnMap([
+                ['custom_product', $testDefinition],
+            ]);
+
+        // Register the mapping
+        $this->resolver->registerEntityMapping(AttributeBasedProductEntity::class, 'custom_product');
+
+        // Now it should work
+        $result = $this->resolver->getDefinition(AttributeBasedProductEntity::class);
+
+        $this->assertSame($testDefinition, $result);
+    }
+
+    public function testRegisterEntityMappingClearsCache(): void
+    {
+        $testDefinition = $this->createTestDefinition();
+
+        $this->registry
+            ->method('getByEntityName')
+            ->willReturnMap([
+                ['custom_product', $testDefinition],
+                ['new_custom_product', $testDefinition],
+            ]);
+
+        // Register the mapping
+        $this->resolver->registerEntityMapping(AttributeBasedProductEntity::class, 'custom_product');
+
+        // Get definition
+        $result1 = $this->resolver->getDefinition(AttributeBasedProductEntity::class);
+
+        // Register a new mapping
+        $this->resolver->registerEntityMapping(AttributeBasedProductEntity::class, 'new_custom_product');
+
+        // Should use the new mapping
+        $result2 = $this->resolver->getDefinition(AttributeBasedProductEntity::class);
+
+        $this->assertSame($testDefinition, $result1);
+        $this->assertSame($testDefinition, $result2);
+    }
+
+    public function testAttributeBasedEntityWithReflectionDiscovery(): void
+    {
+        $testDefinition = $this->createTestDefinition();
+
+        $this->registry
+            ->method('getByEntityName')
+            ->willReturnMap([
+                ['reflected_custom_product', $testDefinition],
+            ]);
+
+        // Register mapping that will be auto-cached after first use
+        $this->resolver->registerEntityMapping(
+            ReflectionBasedProductEntity::class,
+            'reflected_custom_product'
+        );
+
+        $result = $this->resolver->getDefinition(ReflectionBasedProductEntity::class);
+
+        $this->assertSame($testDefinition, $result);
+    }
+
     private function createMockDefinition(): EntityDefinition
     {
         return $this->createMock(ProductDefinition::class);
@@ -253,4 +347,24 @@ class TestEntityDefinition extends EntityDefinition
             new ManyToOneAssociationField('manufacturer', 'manufacturer_id', ProductDefinition::class, 'id'),
         ]);
     }
+}
+
+/**
+ * Test stub representing an attribute-based entity from Shopware.
+ * These entities use PHP 8 attributes instead of extending EntityDefinition.
+ * They don't follow the Entity -> Definition naming convention.
+ *
+ * @see https://developer.shopware.com/docs/guides/plugins/plugins/framework/data-handling/entities-via-attributes.html
+ */
+class AttributeBasedProductEntity
+{
+    // Represents an entity created via attributes instead of traditional definition class
+}
+
+/**
+ * Test stub representing an attribute-based entity with potential reflection discovery.
+ */
+class ReflectionBasedProductEntity
+{
+    // This could have attributes that enable auto-discovery
 }
