@@ -10,6 +10,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Content\Product\ProductDefinition;
 use Shopware\Core\Content\Product\ProductEntity;
+use Shopware\Core\Framework\DataAbstractionLayer\Attribute\Entity;
 use Shopware\Core\Framework\DataAbstractionLayer\CompiledFieldCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityDefinition;
@@ -205,16 +206,6 @@ class EntityDefinitionResolverTest extends TestCase
         $this->assertContains('manufacturer', $result);
     }
 
-    public function testAttributeBasedEntityNotSupportedWithConvention(): void
-    {
-        // Attribute-based entities don't follow Entity -> Definition naming convention
-        // They should fail with current implementation
-        $this->expectException(InvalidEntityException::class);
-        $this->expectExceptionMessageMatches('/Could not resolve entity name/');
-
-        $this->resolver->getDefinition(AttributeBasedProductEntity::class);
-    }
-
     public function testAttributeBasedEntityCanBeResolvedByEntityNameIfPreConfigured(): void
     {
         // If you can provide the entity name directly via configuration,
@@ -226,10 +217,9 @@ class EntityDefinitionResolverTest extends TestCase
             ->with('custom_product')
             ->willReturn($testDefinition);
 
-        // This would work IF we had a way to map AttributeBasedProductEntity -> 'custom_product'
-        // Current implementation does NOT support this mapping
-        // This test documents the limitation
-        $this->markTestSkipped('EntityDefinitionResolver needs entity name mapping for attribute-based entities');
+        $result = $this->resolver->getDefinition(AttributeBasedProductEntity::class);
+
+        $this->assertSame($testDefinition, $result);
     }
 
     public function testRegisterEntityMappingForAttributeBasedEntity(): void
@@ -356,6 +346,7 @@ class TestEntityDefinition extends EntityDefinition
  *
  * @see https://developer.shopware.com/docs/guides/plugins/plugins/framework/data-handling/entities-via-attributes.html
  */
+#[Entity('custom_product')]
 class AttributeBasedProductEntity
 {
     // Represents an entity created via attributes instead of traditional definition class
