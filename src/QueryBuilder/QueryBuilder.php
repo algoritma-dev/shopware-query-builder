@@ -893,6 +893,11 @@ class QueryBuilder
      */
     private function applySoftDeleteFilters(): void
     {
+        // Only apply soft delete filters if the entity has the deletedAt field
+        if (! $this->definitionResolver->hasField($this->entityClass, 'deletedAt')) {
+            return;
+        }
+
         if ($this->onlyTrashed) {
             $this->whereNotNull('deletedAt');
         } elseif (! $this->withTrashed) {

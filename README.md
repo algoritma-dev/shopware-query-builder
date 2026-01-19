@@ -92,7 +92,13 @@ sw_query(ProductEntity::class)
 ->getPaginated()     // Formatted pagination array
 ```
 
-### 📊 Advanced Query Methods
+### 📊 Advanced Query Methods $doctrineExtension = new \Shopware\Core\Profiling\Twig\DoctrineExtension();
+    echo $doctrineExtension->replaceQueryParameters(
+            $sql,
+            array_merge($params ?? array())
+        ) . ';' . PHP_EOL;
+// ADDED END
+    parent::startQuery($sql, $params, $types);
 ```php
 // Operators
 ->where('field', 'value')           // Equals
