@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Algoritma\ShopwareQueryBuilder\QueryBuilder;
 
 use Algoritma\ShopwareQueryBuilder\Exception\EntityNotFoundException;
+use Algoritma\ShopwareQueryBuilder\Exception\InsertEntityException;
 use Algoritma\ShopwareQueryBuilder\Exception\InvalidAliasException;
 use Algoritma\ShopwareQueryBuilder\Exception\UpdateEntityException;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\GroupExpression;
@@ -27,6 +28,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\IdSearchResult;
 
+use function count;
 use function dump;
 
 /**
@@ -821,13 +823,41 @@ class QueryBuilder
 
             $entitiesIds = $this->getIds()->getIds();
 
-            $data = \array_map(static fn (string $id) => array_merge($data, ['id' => $id]), $entitiesIds);
+            $data = \array_map(static fn (string $id): array => \array_merge($data, ['id' => $id]), $entitiesIds);
         }
 
         $event = $this->repository->update($data, $this->context);
 
-        if (count($event->getErrors()) > 0) {
+        if (\count($event->getErrors()) > 0) {
             throw new UpdateEntityException($event->getErrors());
+        }
+
+        $primaryKeys = $event->getPrimaryKeys($this->repository->getDefinition()->getEntityName());
+
+        $entities = $this->repository->search(new Criteria($primaryKeys), $this->context)->getEntities();
+
+        if ($entities->count() === 1) {
+            return $entities->first();
+        }
+
+        return $entities;
+    }
+
+    /**
+     * @param array<array<string, mixed|null>>|array<string, mixed|null> $data
+     *
+     * @throws UpdateEntityException
+     *
+     * @return Entity|EntityCollection<Entity>
+     */
+    public function insert(array $data): Entity|EntityCollection
+    {
+        $this->ensureExecutionContext();
+
+        $event = $this->repository->create($data, $this->context);
+
+        if (\count($event->getErrors()) > 0) {
+            throw new InsertEntityException($event->getErrors());
         }
 
         $primaryKeys = $event->getPrimaryKeys($this->repository->getDefinition()->getEntityName());
