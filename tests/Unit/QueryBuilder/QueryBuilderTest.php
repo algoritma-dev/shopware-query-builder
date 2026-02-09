@@ -15,11 +15,13 @@ use Algoritma\ShopwareQueryBuilder\Scope\ActiveScope;
 use Algoritma\ShopwareQueryBuilder\Scope\ScopeInterface;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shopware\Core\Content\Product\ProductCollection;
 use Shopware\Core\Content\Product\ProductDefinition;
 use Shopware\Core\Content\Product\ProductEntity;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
+use Shopware\Core\Framework\DataAbstractionLayer\Event\EntityWrittenContainerEvent;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\IdSearchResult;
@@ -941,5 +943,114 @@ class QueryBuilderTest extends TestCase
         $result = $this->queryBuilder->getPaginated();
 
         $this->assertFalse($result['hasMorePages']);
+    }
+
+    public function testUpdateWithoutRepositoryShouldThrowError(): void
+    {
+        $context = $this->createMock(Context::class);
+        $this->queryBuilder->setContext($context);
+
+        $this->expectException(\RuntimeException::class);
+        $this->queryBuilder->update([[]]);
+    }
+
+    public function testUpdateShouldReturnEntityUpdated(): void
+    {
+        $entityData = [
+            'id' => 'entity-id',
+            'name' => 'Updated Name',
+        ];
+
+        $expectedEntity = new ProductEntity();
+        $expectedEntity->setId('entity-id');
+        $expectedEntity->setName('Updated Name');
+
+        $entities = new ProductCollection([$expectedEntity]);
+
+        $result = $this->createMock(EntitySearchResult::class);
+        $result->expects($this->once())
+            ->method('getEntities')
+            ->willReturn($entities);
+
+        $event = $this->createMock(EntityWrittenContainerEvent::class);
+        $event->expects($this->once())
+            ->method('getPrimaryKeys')
+            ->willReturn(['entity-id']);
+
+        $repository = $this->createMock(EntityRepository::class);
+        $repository->expects($this->once())
+            ->method('update')
+            ->with([$entityData])
+            ->willReturn($event)
+        ;
+        $repository->expects($this->once())
+            ->method('search')
+            ->with(new Criteria([$entityData['id']]))
+            ->willReturn($result);
+
+        $context = $this->createMock(Context::class);
+        $this->queryBuilder->setContext($context);
+        $this->queryBuilder->setRepository($repository);
+
+        $result = $this->queryBuilder->update([
+            $entityData,
+        ]);
+
+        self::assertInstanceOf(ProductEntity::class, $result);
+        self::assertSame('entity-id', $result->getId());
+        self::assertSame('Updated Name', $result->getName());
+    }
+
+    public function testUpdateCanUpdateMultipleEntity(): void
+    {
+        $data = [
+            [
+                'id' => 'entity-id-1',
+                'name' => 'Updated Name 1',
+            ],
+            [
+                'id' => 'entity-id-2',
+                'name' => 'Updated Name 2',
+            ],
+        ];
+
+        $expectedEntity1 = new ProductEntity();
+        $expectedEntity1->setId('entity-id-1');
+        $expectedEntity1->setName('Updated Name 1');
+
+        $expectedEntity2 = new ProductEntity();
+        $expectedEntity2->setId('entity-id-2');
+        $expectedEntity2->setName('Updated Name 2');
+
+        $entities = new ProductCollection([$expectedEntity1, $expectedEntity2]);
+
+        $result = $this->createMock(EntitySearchResult::class);
+        $result->expects($this->once())
+            ->method('getEntities')
+            ->willReturn($entities);
+
+        $event = $this->createMock(EntityWrittenContainerEvent::class);
+        $event->expects($this->once())
+            ->method('getPrimaryKeys')
+            ->willReturn(['entity-id-1', 'entity-id-2']);
+
+        $repository = $this->createMock(EntityRepository::class);
+        $repository->expects($this->once())
+            ->method('update')
+            ->with($data)
+            ->willReturn($event);
+
+        $repository->expects($this->once())
+            ->method('search')
+            ->with(new Criteria(['entity-id-1', 'entity-id-2']))
+            ->willReturn($result);
+
+        $context = $this->createMock(Context::class);
+        $this->queryBuilder->setContext($context);
+        $this->queryBuilder->setRepository($repository);
+
+        $result = $this->queryBuilder->update($data);
+
+        self::assertInstanceOf(EntityCollection::class, $result);
     }
 }

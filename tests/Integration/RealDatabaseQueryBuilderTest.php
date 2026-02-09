@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace Algoritma\ShopwareQueryBuilder\Tests\Integration;
 
 use Algoritma\ShopwareQueryBuilder\QueryBuilder\QueryBuilder;
+use Shopware\Core\Content\Product\ProductCollection;
 use Shopware\Core\Content\Product\ProductEntity;
 use Shopware\Core\Framework\DataAbstractionLayer\Entity;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
+use Shopware\Core\Framework\DataAbstractionLayer\Write\Command\WriteTypeIntendException;
 
 /**
  * Integration tests that execute real queries against a real database.
@@ -246,5 +249,63 @@ class RealDatabaseQueryBuilderTest extends KernelAwareTestCase
         $this->assertGreaterThan(0, $result->count());
         $first = $result->first();
         $this->assertInstanceOf(ProductEntity::class, $first);
+    }
+
+    /**
+     * Test that we can update a single product.
+     */
+    public function testUpdateSingleEntity(): void
+    {
+        /** @var QueryBuilder $queryBuilder */
+        $queryBuilder = \sw_query(ProductEntity::class);
+
+        $result = $queryBuilder
+            ->update([[
+                'id' => $this->getRepository(ProductEntity::class)->search(new Criteria(), $this->context)->first()->getId(),
+                'name' => 'Updated Product Name',
+            ]]);
+
+        $this->assertInstanceOf(ProductEntity::class, $result);
+        $this->assertSame('Updated Product Name', $result->getName());
+    }
+
+    /**
+     * Test that we can update multiple products.
+     */
+    public function testUpdateMultipleEntity(): void
+    {
+        /** @var QueryBuilder $queryBuilder */
+        $queryBuilder = \sw_query(ProductEntity::class);
+
+        $result = $queryBuilder
+            ->update([
+                [
+                    'id' => $this->getRepository(ProductEntity::class)->search((new Criteria())->addFilter(new EqualsFilter('productNumber', 'SW-PROD-001')), $this->context)->first()->getId(),
+                    'name' => 'Updated Product Name 1',
+                ],
+                [
+                    'id' => $this->getRepository(ProductEntity::class)->search((new Criteria())->addFilter(new EqualsFilter('productNumber', 'SW-PROD-002')), $this->context)->first()->getId(),
+                    'name' => 'Updated Product Name 2',
+                ],
+            ]);
+
+        $this->assertInstanceOf(ProductCollection::class, $result);
+        $this->assertSame('Updated Product Name 1', $result->first()->getName());
+        $this->assertSame('Updated Product Name 2', $result->last()->getName());
+    }
+
+    public function testUpdateWithoutIdShouldThrowException(): void
+    {
+        /** @var QueryBuilder $queryBuilder */
+        $queryBuilder = \sw_query(ProductEntity::class);
+
+        $this->expectException(WriteTypeIntendException::class);
+
+        $queryBuilder
+            ->update([
+                [
+                    'name' => 'Updated Product Name',
+                ],
+            ]);
     }
 }

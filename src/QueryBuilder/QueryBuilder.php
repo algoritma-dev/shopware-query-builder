@@ -6,6 +6,7 @@ namespace Algoritma\ShopwareQueryBuilder\QueryBuilder;
 
 use Algoritma\ShopwareQueryBuilder\Exception\EntityNotFoundException;
 use Algoritma\ShopwareQueryBuilder\Exception\InvalidAliasException;
+use Algoritma\ShopwareQueryBuilder\Exception\UpdateEntityException;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\GroupExpression;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\WhereExpression;
 use Algoritma\ShopwareQueryBuilder\Filter\FilterFactory;
@@ -25,6 +26,8 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Aggregation\Metric\SumAg
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\IdSearchResult;
+
+use function dump;
 
 /**
  * Fluent Query Builder for Shopware 6.7.
@@ -802,6 +805,34 @@ class QueryBuilder
     public function getAggregations(): array
     {
         return $this->aggregations;
+    }
+
+    /**
+     * @param array<array<string, mixed|null>> $data
+     *
+     * @throws UpdateEntityException
+     *
+     * @return Entity|EntityCollection<Entity>
+     */
+    public function update(array $data): Entity|EntityCollection
+    {
+        $this->ensureExecutionContext();
+
+        $event = $this->repository->update($data, $this->context);
+
+        if (count($event->getErrors()) > 0) {
+            throw new UpdateEntityException($event->getErrors());
+        }
+
+        $primaryKeys = $event->getPrimaryKeys($this->repository->getDefinition()->getEntityName());
+
+        $entities = $this->repository->search(new Criteria($primaryKeys), $this->context)->getEntities();
+
+        if ($entities->count() === 1) {
+            return $entities->first();
+        }
+
+        return $entities;
     }
 
     /**
