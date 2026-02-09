@@ -562,7 +562,7 @@ class QueryBuilder
             'entity' => $this->entityClass,
             'alias' => $this->alias,
             'where' => $this->formatExpressionsForDebug($this->whereExpressions),
-            'orWhere' => array_map(
+            'orWhere' => \array_map(
                 $this->formatExpressionsForDebug(...),
                 $this->orWhereGroups
             ),
@@ -735,9 +735,7 @@ class QueryBuilder
         // Apply soft delete filters automatically
         $this->applySoftDeleteFilters();
 
-        $builder = new CriteriaBuilder($this->filterFactory);
-
-        return $builder->build($this);
+        return (new CriteriaBuilder($this->filterFactory))->build($this);
     }
 
     // Getters for CriteriaBuilder
@@ -808,7 +806,7 @@ class QueryBuilder
     }
 
     /**
-     * @param array<array<string, mixed|null>> $data
+     * @param array<array<string, mixed|null>>|array<string, mixed|null> $data
      *
      * @throws UpdateEntityException
      *
@@ -817,6 +815,14 @@ class QueryBuilder
     public function update(array $data): Entity|EntityCollection
     {
         $this->ensureExecutionContext();
+
+        if ($this->whereExpressions !== [] || $this->orWhereGroups !== []) {
+            $this->ensureDataIsValidForConditionUse($data);
+
+            $entitiesIds = $this->getIds()->getIds();
+
+            $data = \array_map(static fn (string $id) => array_merge($data, ['id' => $id]), $entitiesIds);
+        }
 
         $event = $this->repository->update($data, $this->context);
 
@@ -844,7 +850,7 @@ class QueryBuilder
      */
     private function formatExpressionsForDebug(array $expressions): array
     {
-        return array_map(function (GroupExpression|WhereExpression $expr): array {
+        return \array_map(function (GroupExpression|WhereExpression $expr): array {
             if ($expr instanceof GroupExpression) {
                 return [
                     'type' => 'group',
@@ -1013,5 +1019,31 @@ class QueryBuilder
         $parts = explode('\\', $class);
 
         return end($parts);
+    }
+
+    /**
+     * @param array<mixed> $data
+     *
+     * @throws UpdateEntityException
+     */
+    private function ensureDataIsValidForConditionUse(array $data): void
+    {
+        if (($this->whereExpressions !== [] || $this->orWhereGroups !== []) && (\array_is_list($data) || $this->hasNonStringKeys($data) || isset($data['id']))) {
+            throw new UpdateEntityException(['Data for update with conditions must be an associative array without "id" field.']);
+        }
+    }
+
+    /**
+     * @param array<mixed> $data
+     */
+    private function hasNonStringKeys(array $data): bool
+    {
+        foreach (array_keys($data) as $key) {
+            if (! \is_string($key)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

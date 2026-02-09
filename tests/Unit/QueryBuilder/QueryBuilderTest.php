@@ -24,6 +24,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Event\EntityWrittenContainerEvent;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\IdSearchResult;
 
 class QueryBuilderTest extends TestCase
@@ -1052,5 +1053,72 @@ class QueryBuilderTest extends TestCase
         $result = $this->queryBuilder->update($data);
 
         self::assertInstanceOf(EntityCollection::class, $result);
+        self::assertEquals($expectedEntity1, $result->first());
+        self::assertEquals($expectedEntity2, $result->last());
+    }
+
+    public function testUpdateWithConditions(): void
+    {
+        $data = [
+            'name' => 'Updated Name 1',
+        ];
+
+        $expectedData = [
+            [
+                'id' => 'entity-id',
+                'name' => 'Updated Name 1',
+            ],
+        ];
+
+        $expectedEntity = new ProductEntity();
+        $expectedEntity->setId('entity-id');
+        $expectedEntity->setName('Updated Name 2');
+
+        $result = $this->createMock(EntitySearchResult::class);
+        $result->expects($this->once())
+            ->method('getEntities')
+            ->willReturn(new ProductCollection([$expectedEntity]));
+
+        $event = $this->createMock(EntityWrittenContainerEvent::class);
+        $event->expects($this->once())
+            ->method('getPrimaryKeys')
+            ->willReturn(['entity-id']);
+
+        $repository = $this->createMock(EntityRepository::class);
+        $repository->expects($this->once())
+            ->method('update')
+            ->with($expectedData)
+            ->willReturn($event);
+
+        $repository->expects($this->once())
+            ->method('search')
+            ->with(new Criteria(['entity-id']))
+            ->willReturn($result);
+
+        $idResult = $this->createMock(IdSearchResult::class);
+        $idResult->expects($this->once())
+            ->method('getIds')
+            ->willReturn(['entity-id']);
+
+        $repository->expects($this->once())
+            ->method('searchIds')
+            ->with((new Criteria())->addFilter(new EqualsFilter('name', 'Product Name')))
+            ->willReturn($idResult);
+
+        $this->propertyResolver->expects($this->once())
+            ->method('resolve')
+            ->with(ProductEntity::class, 'name')
+            ->willReturn('name');
+
+        $context = $this->createMock(Context::class);
+        $this->queryBuilder->setContext($context);
+        $this->queryBuilder->setRepository($repository);
+
+        $result = $this->queryBuilder
+            ->where('name', '=', 'Product Name')
+            ->update($data)
+        ;
+
+        self::assertInstanceOf(ProductEntity::class, $result);
     }
 }
