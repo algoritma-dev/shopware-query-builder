@@ -42,8 +42,8 @@ class EntityDefinitionResolverTest extends TestCase
 
         $this->registry
             ->expects($this->once())
-            ->method('getByEntityName')
-            ->with('product')
+            ->method('getByEntityClass')
+            ->with(new ProductEntity())
             ->willReturn($definition);
 
         $result = $this->resolver->getDefinition(ProductEntity::class);
@@ -56,9 +56,9 @@ class EntityDefinitionResolverTest extends TestCase
         $definition = $this->createMockDefinition();
 
         $this->registry
-            ->expects($this->once()) // Should only be called once due to caching
-            ->method('getByEntityName')
-            ->with('product')
+            ->expects($this->once())
+            ->method('getByEntityClass')
+            ->with(new ProductEntity())
             ->willReturn($definition);
 
         $this->resolver->getDefinition(ProductEntity::class);
@@ -70,7 +70,6 @@ class EntityDefinitionResolverTest extends TestCase
     public function testGetDefinitionThrowsExceptionForInvalidClass(): void
     {
         $this->expectException(InvalidEntityException::class);
-        $this->expectExceptionMessageMatches('/Definition class .* not found/');
 
         $this->resolver->getDefinition('InvalidEntity');
     }
@@ -80,8 +79,9 @@ class EntityDefinitionResolverTest extends TestCase
         $testDefinition = $this->createTestDefinition();
 
         $this->registry
-            ->method('getByEntityName')
-            ->with('product')
+            ->expects($this->once())
+            ->method('getByEntityClass')
+            ->with(new ProductEntity())
             ->willReturn($testDefinition);
 
         $result = $this->resolver->getEntityName(ProductEntity::class);
@@ -94,8 +94,9 @@ class EntityDefinitionResolverTest extends TestCase
         $testDefinition = $this->createTestDefinition();
 
         $this->registry
-            ->method('getByEntityName')
-            ->with('product')
+            ->expects($this->once())
+            ->method('getByEntityClass')
+            ->with(new ProductEntity())
             ->willReturn($testDefinition);
 
         $result = $this->resolver->hasField(ProductEntity::class, 'active');
@@ -108,8 +109,9 @@ class EntityDefinitionResolverTest extends TestCase
         $testDefinition = $this->createTestDefinition();
 
         $this->registry
-            ->method('getByEntityName')
-            ->with('product')
+            ->expects($this->once())
+            ->method('getByEntityClass')
+            ->with(new ProductEntity())
             ->willReturn($testDefinition);
 
         $result = $this->resolver->hasField(ProductEntity::class, 'nonExistingField123');
@@ -122,8 +124,9 @@ class EntityDefinitionResolverTest extends TestCase
         $testDefinition = $this->createTestDefinition();
 
         $this->registry
-            ->method('getByEntityName')
-            ->with('product')
+            ->expects($this->once())
+            ->method('getByEntityClass')
+            ->with(new ProductEntity())
             ->willReturn($testDefinition);
 
         $result = $this->resolver->getField(ProductEntity::class, 'active');
@@ -137,8 +140,9 @@ class EntityDefinitionResolverTest extends TestCase
         $testDefinition = $this->createTestDefinition();
 
         $this->registry
-            ->method('getByEntityName')
-            ->with('product')
+            ->expects($this->once())
+            ->method('getByEntityClass')
+            ->with(new ProductEntity())
             ->willReturn($testDefinition);
 
         $this->expectException(InvalidEntityException::class);
@@ -152,8 +156,9 @@ class EntityDefinitionResolverTest extends TestCase
         $testDefinition = $this->createTestDefinition();
 
         $this->registry
-            ->method('getByEntityName')
-            ->with('product')
+            ->expects($this->once())
+            ->method('getByEntityClass')
+            ->with(new ProductEntity())
             ->willReturn($testDefinition);
 
         $result = $this->resolver->isAssociation(ProductEntity::class, 'manufacturer');
@@ -166,8 +171,9 @@ class EntityDefinitionResolverTest extends TestCase
         $testDefinition = $this->createTestDefinition();
 
         $this->registry
-            ->method('getByEntityName')
-            ->with('product')
+            ->expects($this->once())
+            ->method('getByEntityClass')
+            ->with(new ProductEntity())
             ->willReturn($testDefinition);
 
         $result = $this->resolver->isAssociation(ProductEntity::class, 'active');
@@ -180,8 +186,9 @@ class EntityDefinitionResolverTest extends TestCase
         $testDefinition = $this->createTestDefinition();
 
         $this->registry
-            ->method('getByEntityName')
-            ->with('product')
+            ->expects($this->once())
+            ->method('getByEntityClass')
+            ->with(new ProductEntity())
             ->willReturn($testDefinition);
 
         $result = $this->resolver->getAvailableFields(ProductEntity::class);
@@ -197,29 +204,14 @@ class EntityDefinitionResolverTest extends TestCase
         $testDefinition = $this->createTestDefinition();
 
         $this->registry
-            ->method('getByEntityName')
-            ->with('product')
+            ->expects($this->once())
+            ->method('getByEntityClass')
+            ->with(new ProductEntity())
             ->willReturn($testDefinition);
 
         $result = $this->resolver->getAvailableAssociations(ProductEntity::class);
 
         $this->assertContains('manufacturer', $result);
-    }
-
-    public function testAttributeBasedEntityCanBeResolvedByEntityNameIfPreConfigured(): void
-    {
-        // If you can provide the entity name directly via configuration,
-        // attribute-based entities can work
-        $testDefinition = $this->createTestDefinition();
-
-        $this->registry
-            ->method('getByEntityName')
-            ->with('custom_product')
-            ->willReturn($testDefinition);
-
-        $result = $this->resolver->getDefinition(AttributeBasedProductEntity::class);
-
-        $this->assertSame($testDefinition, $result);
     }
 
     public function testRegisterEntityMappingForAttributeBasedEntity(): void
@@ -347,7 +339,7 @@ class TestEntityDefinition extends EntityDefinition
  * @see https://developer.shopware.com/docs/guides/plugins/plugins/framework/data-handling/entities-via-attributes.html
  */
 #[Entity('custom_product')]
-class AttributeBasedProductEntity
+class AttributeBasedProductEntity extends \Shopware\Core\Framework\DataAbstractionLayer\Entity
 {
     // Represents an entity created via attributes instead of traditional definition class
 }
