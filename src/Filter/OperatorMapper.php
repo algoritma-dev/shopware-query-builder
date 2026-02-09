@@ -14,7 +14,7 @@ class OperatorMapper
     /**
      * @var array<string, string>
      */
-    private const array OPERATOR_MAP = [
+    private const OPERATOR_MAP = [
         '=' => 'equals',
         '==' => 'equals',
         '!=' => 'not_equals',

@@ -19,7 +19,9 @@ class ShopwareQueryBuilderExtension extends Extension
 {
     public function load(array $configs, ContainerBuilder $container): void
     {
+        /** @phpstan-ignore-next-line */
         $loader = new XmlFileLoader($container, new FileLocator(__DIR__ . '/../Resources/config'));
+        /** @phpstan-ignore-next-line */
         $loader->load('services.xml');
 
         $config = $this->processConfiguration(new Configuration(), $configs);

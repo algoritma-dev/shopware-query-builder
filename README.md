@@ -223,10 +223,10 @@ public function search(Request $request): Response
     $products = sw_query(ProductEntity::class, 'p')
         ->with('manufacturer', 'm')
         ->where('p.active', true)
-        ->where('p.name', 'like', "%{$term}%")
+        ->where('p.name', 'like', $term)
         ->orWhere(function($q) use ($term) {
-            $q->where('description', 'like', "%{$term}%")
-              ->where('productNumber', 'like', "%{$term}%");
+            $q->where('description', 'like', $term) // like operator doesn't want %, Shopware ContainsFilter add it automatically
+              ->where('productNumber', 'like', $term);
         })
         ->orderBy('p.name', 'ASC')
         ->limit(50)

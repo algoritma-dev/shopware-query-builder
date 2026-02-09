@@ -262,6 +262,7 @@ class QueryBuilderIntegrationTest extends TestCase
             $this->filterFactory
         );
 
+        /** @var EntitySearchResult $result */
         $result = $queryBuilder
             ->where('active', true)
             ->where('stock', '>', 0)

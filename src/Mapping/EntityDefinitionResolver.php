@@ -153,6 +153,12 @@ class EntityDefinitionResolver
             throw new InvalidEntityException(sprintf('Field %s on entity %s is not an association', $fieldName, $entityClass));
         }
 
+        if ($field instanceof ManyToManyAssociationField) {
+            $definitionEntityClass = $field->getToManyReferenceDefinition()->getEntityClass();
+        } else {
+            $definitionEntityClass = $field->getReferenceDefinition()->getEntityClass();
+        }
+
         $type = match (true) {
             $field instanceof ManyToOneAssociationField => 'many_to_one',
             $field instanceof OneToManyAssociationField => 'one_to_many',
@@ -162,7 +168,7 @@ class EntityDefinitionResolver
 
         return [
             'propertyName' => $field->getPropertyName(),
-            'referenceClass' => $field->getReferenceDefinition()->getEntityClass(),
+            'referenceClass' => $definitionEntityClass,
             'type' => $type,
         ];
     }
