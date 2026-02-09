@@ -99,7 +99,7 @@ class QueryBuilder
         $this->definitionResolver->getDefinition($this->entityClass);
 
         // Default context for execution
-        $this->context = Context::createDefaultContext();
+        $this->context = Context::createCLIContext();
     }
 
     /**
