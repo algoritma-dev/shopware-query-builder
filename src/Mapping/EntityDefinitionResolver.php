@@ -76,12 +76,25 @@ class EntityDefinitionResolver
             return $this->cache[$entityClass];
         }
 
-        $entityName = $this->resolveEntityName($entityClass);
+        // Custom mapping
+        if (isset($this->entityNameMapping[$entityClass])) {
+            $entityName = $this->entityNameMapping[$entityClass];
 
-        try {
             $definition = $this->definitionRegistry->getByEntityName($entityName);
-        } catch (\Exception $e) {
-            throw new InvalidEntityException(sprintf('Could not resolve definition for entity %s: %s', $entityClass, $e->getMessage()), 0, $e);
+
+            $this->cache[$entityClass] = $definition;
+
+            return $definition;
+        }
+
+        if (! class_exists($entityClass)) {
+            throw new InvalidEntityException(\sprintf('Entity class %s does not exist. Please ensure it is autoloadable or register a custom mapping.', $entityClass));
+        }
+
+        $definition = $this->definitionRegistry->getByEntityClass(new $entityClass());
+
+        if (! $definition instanceof EntityDefinition) {
+            throw new InvalidEntityException(\sprintf('Could not resolve definition for entity %s', $entityClass));
         }
 
         $this->cache[$entityClass] = $definition;
@@ -118,7 +131,7 @@ class EntityDefinitionResolver
         $field = $this->getDefinition($entityClass)->getField($fieldName);
 
         if (! $field instanceof Field) {
-            throw new InvalidEntityException(sprintf('Field %s does not exist on entity %s', $fieldName, $entityClass));
+            throw new InvalidEntityException(\sprintf('Field %s does not exist on entity %s', $fieldName, $entityClass));
         }
 
         return $field;
@@ -150,7 +163,7 @@ class EntityDefinitionResolver
         $field = $this->getField($entityClass, $fieldName);
 
         if (! $field instanceof AssociationField) {
-            throw new InvalidEntityException(sprintf('Field %s on entity %s is not an association', $fieldName, $entityClass));
+            throw new InvalidEntityException(\sprintf('Field %s on entity %s is not an association', $fieldName, $entityClass));
         }
 
         if ($field instanceof ManyToManyAssociationField) {
@@ -207,82 +220,5 @@ class EntityDefinitionResolver
         }
 
         return $associations;
-    }
-
-    /**
-     * Resolve the entity name from the Entity class.
-     *
-     * Tries multiple strategies:
-     * 1. Custom mapping via registerEntityMapping()
-     * 2. Convention-based (Entity -> Definition)
-     * 3. Reflection-based (PHP 8 attributes)
-     *
-     * @throws InvalidEntityException
-     */
-    private function resolveEntityName(string $entityClass): string
-    {
-        // Custom mapping
-        if (isset($this->entityNameMapping[$entityClass])) {
-            return $this->entityNameMapping[$entityClass];
-        }
-
-        // Convention-based
-        $definitionClass = str_replace('Entity', 'Definition', $entityClass);
-        if (class_exists($definitionClass) && defined($definitionClass . '::ENTITY_NAME')) {
-            return constant($definitionClass . '::ENTITY_NAME');
-        }
-
-        // Reflection-based (Attribute-based entities)
-        $entityName = $this->resolveEntityNameViaReflection($entityClass);
-        if ($entityName !== null) {
-            // Cache the discovered mapping for future use
-            $this->entityNameMapping[$entityClass] = $entityName;
-
-            return $entityName;
-        }
-
-        throw new InvalidEntityException(sprintf('Could not resolve entity name for %s. Definition class %s not found. Please register via registerEntityMapping() or ensure class follows Entity->Definition convention.', $entityClass, $definitionClass));
-    }
-
-    /**
-     * Try to resolve entity name via PHP 8 attributes.
-     *
-     * Looks for #[Entity(name: 'entity_name')] or similar Shopware entity attributes.
-     * This enables support for attribute-based entities without explicit registration.
-     *
-     * @return string|null The entity name if found via attributes, null otherwise
-     */
-    private function resolveEntityNameViaReflection(string $entityClass): ?string
-    {
-        if (! class_exists($entityClass)) {
-            return null;
-        }
-
-        try {
-            $reflection = new \ReflectionClass($entityClass);
-            $attributes = $reflection->getAttributes();
-
-            foreach ($attributes as $attribute) {
-                $attributeName = $attribute->getName();
-
-                // Check if it's a Shopware Entity attribute (any attribute containing 'Entity')
-                if ($attributeName === Entity::class) {
-                    $args = $attribute->getArguments();
-
-                    if (isset($args['name'])) {
-                        return $args['name'];
-                    }
-
-                    // Try positional argument (first parameter)
-                    if (isset($args[0])) {
-                        return $args[0];
-                    }
-                }
-            }
-        } catch (\Exception) {
-            // Silently ignore reflection errors and fall through
-        }
-
-        return null;
     }
 }
