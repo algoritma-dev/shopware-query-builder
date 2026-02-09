@@ -979,17 +979,22 @@ class QueryBuilder
      */
     private function createExpression(string $property, mixed $operatorOrValue, mixed $value): WhereExpression
     {
-        // Resolve property with alias support
+        // Risolvi la proprietà (gestione alias se presente)
         $resolvedProperty = $this->resolvePropertyWithAlias($property);
 
-        // Determine operator and value
-        if ($value === null && ! is_string($operatorOrValue)) {
-            // where('active', true) - operator is '=', value is $operatorOrValue
-            return new WhereExpression($resolvedProperty, '=', $operatorOrValue);
+        if ($value === null) {
+            if (is_string($operatorOrValue)) {
+                if (! str_contains($operatorOrValue, ' ')) {
+                    $value = $operatorOrValue;
+                    $operatorOrValue = '=';
+                }
+            } else {
+                $value = $operatorOrValue;
+                $operatorOrValue = '=';
+            }
         }
 
-        // where('stock', '>', 10) - explicit operator
-        return new WhereExpression($resolvedProperty, (string) $operatorOrValue, $value);
+        return new WhereExpression($resolvedProperty, $operatorOrValue, $value);
     }
 
     /**
