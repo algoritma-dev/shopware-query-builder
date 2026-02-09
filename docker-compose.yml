@@ -1,0 +1,45 @@
+volumes:
+    db_data:
+    plugin_vendor:
+
+x-pull-policy: &pull-policy
+    pull_policy: always
+
+services:
+
+    workspace:
+        <<: *pull-policy
+        image: docker.algoritma.it/algoritma/workspace:shopware6.7-bullseye
+        extra_hosts:
+            - host.docker.internal:host-gateway
+        volumes:
+            - ~/.composer:/home/algoritma/.composer
+            - .:/var/www
+        environment:
+            COMPOSER_HOME: '/home/algoritma/.composer'
+
+    shop:
+        image: dockware/shopware:6.7.6.2
+        container_name: shop
+        volumes:
+            - db_data:/var/lib/mysql
+            # ----------------------------------------------------------------------------------------------------------------------------------
+            # PLUGINS
+            # our plugin GIT repository is in a sub folder custom/plugins
+            - ".:/var/www/html/custom/static-plugins/ShopwareQueryBuilder"
+            # ----------------------------------------------------------------------------------------------------------------------------------
+            # exclude some folders for better performance
+            # this uses anonymous volumes that leads to container/host decoupling for these folders
+            # therefore less bind-mount -> better performance
+            - "plugin_vendor:/var/www/html/custom/static-plugins/ShopwareQueryBuilder/vendor/"
+            - "./vendor:/var/www/html/vendor/"
+        ports:
+            - "80:80"
+            - "443:443"
+            - "3306:3306"
+            - "5173:5173"
+            - "8123:8080"
+            - "8081:8081"
+        environment:
+            - XDEBUG_ENABLED=1
+        network_mode: host

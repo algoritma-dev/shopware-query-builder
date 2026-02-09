@@ -6,12 +6,6 @@ parameters:
 	excludePaths:
 		- **/node_modules/*
 		- **/vendor/*
-	ignoreErrors:
-		- identifier: symplify.multipleClassLikeInFile
-		- identifier: method.deprecated
-		  message: '#Call to deprecated method __construct\(\) of class Algoritma\\ShopwareQueryBuilder\\Tests\\Unit\\Mapping\\TestEntityDefinition#'
-		- identifier: typePerfect.narrowPublicClassMethodParamType
-		  path: src/QueryBuilder/QueryBuilder.php
-		- identifier: typeCoverage.constantTypeCoverage
-		  path: tests/Unit/Mapping/EntityDefinitionResolverTest.php
+		- tests
+
 
