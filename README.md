@@ -379,6 +379,22 @@ $debugInfo = sw_query(ProductEntity::class, 'p')
 // Returns: ['entity' => '...', 'where' => [...], 'limit' => 10, ...]
 ```
 
+### Example 10: Updates
+
+```php
+// Update with conditions and get updated entities
+$products = sw_query(ProductEntity::class, 'p')
+    ->where('p.active', true)
+    ->update([/** data **/]); // Will return entities objects with updated data *NOTICE: flat associative array for updates with conditions*
+
+// Update without conditions (Shopware repository update standard behavior) and get entity objects with updated data
+sw_query(ProductEntity::class)
+    ->update(
+        [[ /** data **/]]
+    );
+```
+
+
 ## 🔧 Configuration
 
 ### 1. Register services in `services.xml`
@@ -564,24 +580,3 @@ Developed for Shopware 6.7+ with focus on:
 - Modern PHP 8.2+
 
 ---
-
-**Version**: 3.0.0
-**Target**: Shopware 6.7.x
-**PHP**: 8.2+
-**Last revision**: 2026-01-16
-
-## 🆕 What's New in v3.0
-
-### Major Features
-- ✅ **Aggregations** - Full support for count, sum, avg, min, max
-- ✅ **Nested Groups** - Infinite nesting with `whereGroup()` and `orWhereGroup()`
-- ✅ **Reusable Scopes** - Extract and reuse query logic with `ScopeInterface`
-- ✅ **Soft Deletes** - Built-in support with `withTrashed()`, `onlyTrashed()`
-- ✅ **Query Debugging** - `debug()`, `dump()`, `dd()`, `toDebugArray()`
-
-### Testing & Quality
-- 156 unit tests (+41 from v2.1)
-- 311 assertions (+90 from v2.1)
-- 100% test success rate
-- PHPStan Level 6 compliance
-- Full type safety with generics

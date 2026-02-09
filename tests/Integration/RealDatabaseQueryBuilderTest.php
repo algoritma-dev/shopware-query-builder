@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 namespace Algoritma\ShopwareQueryBuilder\Tests\Integration;
 
+use Algoritma\ShopwareQueryBuilder\Exception\UpdateEntityException;
 use Algoritma\ShopwareQueryBuilder\QueryBuilder\QueryBuilder;
+use Shopware\Core\Content\Product\ProductCollection;
 use Shopware\Core\Content\Product\ProductEntity;
+use Shopware\Core\Defaults;
 use Shopware\Core\Framework\DataAbstractionLayer\Entity;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
+use Shopware\Core\Framework\DataAbstractionLayer\Write\Command\WriteTypeIntendException;
+use Shopware\Core\Framework\Uuid\Uuid;
 
 /**
  * Integration tests that execute real queries against a real database.
@@ -246,5 +252,169 @@ class RealDatabaseQueryBuilderTest extends KernelAwareTestCase
         $this->assertGreaterThan(0, $result->count());
         $first = $result->first();
         $this->assertInstanceOf(ProductEntity::class, $first);
+    }
+
+    /**
+     * Test that we can update a single product.
+     */
+    public function testUpdateSingleEntity(): void
+    {
+        /** @var QueryBuilder $queryBuilder */
+        $queryBuilder = \sw_query(ProductEntity::class);
+
+        $result = $queryBuilder
+            ->update([[
+                'id' => $this->getRepository(ProductEntity::class)->search(new Criteria(), $this->context)->first()->getId(),
+                'name' => 'Updated Product Name',
+            ]]);
+
+        $this->assertInstanceOf(ProductEntity::class, $result);
+        $this->assertSame('Updated Product Name', $result->getName());
+    }
+
+    /**
+     * Test that we can update multiple products.
+     */
+    public function testUpdateMultipleEntity(): void
+    {
+        /** @var QueryBuilder $queryBuilder */
+        $queryBuilder = \sw_query(ProductEntity::class);
+
+        $result = $queryBuilder
+            ->update([
+                [
+                    'id' => $this->getRepository(ProductEntity::class)->search((new Criteria())->addFilter(new EqualsFilter('productNumber', 'SW-PROD-001')), $this->context)->first()->getId(),
+                    'name' => 'Updated Product Name 1',
+                ],
+                [
+                    'id' => $this->getRepository(ProductEntity::class)->search((new Criteria())->addFilter(new EqualsFilter('productNumber', 'SW-PROD-002')), $this->context)->first()->getId(),
+                    'name' => 'Updated Product Name 2',
+                ],
+            ]);
+
+        $this->assertInstanceOf(ProductCollection::class, $result);
+        $this->assertSame('Updated Product Name 1', $result->first()->getName());
+        $this->assertSame('Updated Product Name 2', $result->last()->getName());
+    }
+
+    public function testUpdateWithoutIdShouldThrowException(): void
+    {
+        /** @var QueryBuilder $queryBuilder */
+        $queryBuilder = \sw_query(ProductEntity::class);
+
+        $this->expectException(WriteTypeIntendException::class);
+
+        $queryBuilder
+            ->update([
+                [
+                    'name' => 'Updated Product Name',
+                ],
+            ]);
+    }
+
+    public function testUpdateWithConditionAndDataNotValidThrowError(): void
+    {
+        /** @var QueryBuilder $queryBuilder */
+        $queryBuilder = \sw_query(ProductEntity::class);
+
+        $this->expectException(UpdateEntityException::class);
+
+        $queryBuilder
+            ->where('active', true)
+            ->update([
+                [
+                    'name' => 'Updated Product Name',
+                ],
+            ]);
+    }
+
+    public function testUpdateWithCondition(): void
+    {
+        /** @var QueryBuilder $queryBuilder */
+        $queryBuilder = \sw_query(ProductEntity::class);
+
+        $result = $queryBuilder
+            ->where('active', true)
+            ->update([
+                'name' => 'Updated Product Name',
+            ]);
+
+        foreach ($result as $product) {
+            $this->assertSame('Updated Product Name', $product->getName());
+        }
+    }
+
+    /**
+     * Test that we can insert a single product.
+     */
+    public function testInsertSingleEntity(): void
+    {
+        /** @var QueryBuilder $queryBuilder */
+        $queryBuilder = \sw_query(ProductEntity::class);
+
+        $randomId = Uuid::randomHex();
+
+        $result = $queryBuilder
+            ->insert([[
+                'name' => 'Inserted Product Name',
+                'productNumber' => 'SW-PROD-' . $randomId,
+                'tax' => ['name' => 'Standard Tax', 'taxRate' => 19.0],
+                'price' => [
+                    ['currencyId' => Defaults::CURRENCY, 'net' => 70.0, 'gross' => 83.3, 'linked' => false],
+                ],
+                'stock' => 10,
+            ]]);
+
+        $this->assertInstanceOf(ProductEntity::class, $result);
+        $this->assertSame('Inserted Product Name', $result->getName());
+        $this->assertSame('SW-PROD-' . $randomId, $result->getProductNumber());
+        $this->assertSame(10, $result->getStock());
+    }
+
+    /**
+     * Test that we can insert multiple products.
+     */
+    public function testInsertMultipleEntity(): void
+    {
+        /** @var QueryBuilder $queryBuilder */
+        $queryBuilder = \sw_query(ProductEntity::class);
+
+        $randomId = Uuid::randomHex();
+
+        $result = $queryBuilder
+            ->insert([
+                [
+                    'name' => 'Inserted Product Name 1',
+                    'productNumber' => 'SW-PROD-' . Uuid::randomHex(),
+                    'tax' => ['name' => 'Standard Tax', 'taxRate' => 19.0],
+                    'price' => [
+                        ['currencyId' => Defaults::CURRENCY, 'net' => 70.0, 'gross' => 83.3, 'linked' => false],
+                    ],
+                    'stock' => 10,
+                ],
+                [
+                    'id' => $randomId,
+                    'name' => 'Inserted Product Name 2',
+                    'productNumber' => 'SW-PROD-' . $randomId,
+                    'tax' => ['name' => 'Standard Tax', 'taxRate' => 19.0],
+                    'price' => [
+                        ['currencyId' => Defaults::CURRENCY, 'net' => 70.0, 'gross' => 83.3, 'linked' => false],
+                    ],
+                    'stock' => 20,
+                ],
+            ]);
+
+        $this->assertInstanceOf(ProductCollection::class, $result);
+
+        $firstProduct = $result->first();
+        $this->assertInstanceOf(ProductEntity::class, $firstProduct);
+        $this->assertSame('Inserted Product Name 1', $firstProduct->getName());
+        $this->assertSame(10, $firstProduct->getStock());
+
+        $lastProduct = $result->last();
+        $this->assertInstanceOf(ProductEntity::class, $lastProduct);
+        $this->assertSame($randomId, $lastProduct->getId());
+        $this->assertSame('Inserted Product Name 2', $lastProduct->getName());
+        $this->assertSame(20, $lastProduct->getStock());
     }
 }

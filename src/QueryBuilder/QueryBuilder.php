@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Algoritma\ShopwareQueryBuilder\QueryBuilder;
 
 use Algoritma\ShopwareQueryBuilder\Exception\EntityNotFoundException;
+use Algoritma\ShopwareQueryBuilder\Exception\InsertEntityException;
 use Algoritma\ShopwareQueryBuilder\Exception\InvalidAliasException;
+use Algoritma\ShopwareQueryBuilder\Exception\UpdateEntityException;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\GroupExpression;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\WhereExpression;
 use Algoritma\ShopwareQueryBuilder\Filter\FilterFactory;
@@ -25,6 +27,9 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Aggregation\Metric\SumAg
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\IdSearchResult;
+
+use function count;
+use function dump;
 
 /**
  * Fluent Query Builder for Shopware 6.7.
@@ -559,7 +564,7 @@ class QueryBuilder
             'entity' => $this->entityClass,
             'alias' => $this->alias,
             'where' => $this->formatExpressionsForDebug($this->whereExpressions),
-            'orWhere' => array_map(
+            'orWhere' => \array_map(
                 $this->formatExpressionsForDebug(...),
                 $this->orWhereGroups
             ),
@@ -732,9 +737,7 @@ class QueryBuilder
         // Apply soft delete filters automatically
         $this->applySoftDeleteFilters();
 
-        $builder = new CriteriaBuilder($this->filterFactory);
-
-        return $builder->build($this);
+        return (new CriteriaBuilder($this->filterFactory))->build($this);
     }
 
     // Getters for CriteriaBuilder
@@ -805,6 +808,70 @@ class QueryBuilder
     }
 
     /**
+     * @param array<array<string, mixed|null>>|array<string, mixed|null> $data
+     *
+     * @throws UpdateEntityException
+     *
+     * @return Entity|EntityCollection<Entity>
+     */
+    public function update(array $data): Entity|EntityCollection
+    {
+        $this->ensureExecutionContext();
+
+        if ($this->whereExpressions !== [] || $this->orWhereGroups !== []) {
+            $this->ensureDataIsValidForConditionUse($data);
+
+            $entitiesIds = $this->getIds()->getIds();
+
+            $data = \array_map(static fn (string $id): array => \array_merge($data, ['id' => $id]), $entitiesIds);
+        }
+
+        $event = $this->repository->update($data, $this->context);
+
+        if (\count($event->getErrors()) > 0) {
+            throw new UpdateEntityException($event->getErrors());
+        }
+
+        $primaryKeys = $event->getPrimaryKeys($this->repository->getDefinition()->getEntityName());
+
+        $entities = $this->repository->search(new Criteria($primaryKeys), $this->context)->getEntities();
+
+        if ($entities->count() === 1) {
+            return $entities->first();
+        }
+
+        return $entities;
+    }
+
+    /**
+     * @param array<array<string, mixed|null>>|array<string, mixed|null> $data
+     *
+     * @throws UpdateEntityException
+     *
+     * @return Entity|EntityCollection<Entity>
+     */
+    public function insert(array $data): Entity|EntityCollection
+    {
+        $this->ensureExecutionContext();
+
+        $event = $this->repository->create($data, $this->context);
+
+        if (\count($event->getErrors()) > 0) {
+            throw new InsertEntityException($event->getErrors());
+        }
+
+        $primaryKeys = $event->getPrimaryKeys($this->repository->getDefinition()->getEntityName());
+
+        $entities = $this->repository->search(new Criteria($primaryKeys), $this->context)->getEntities();
+
+        if ($entities->count() === 1) {
+            return $entities->first();
+        }
+
+        return $entities;
+    }
+
+    /**
      * Format expressions for debug output.
      *
      * @param array<WhereExpression|GroupExpression> $expressions
@@ -813,7 +880,7 @@ class QueryBuilder
      */
     private function formatExpressionsForDebug(array $expressions): array
     {
-        return array_map(function (GroupExpression|WhereExpression $expr): array {
+        return \array_map(function (GroupExpression|WhereExpression $expr): array {
             if ($expr instanceof GroupExpression) {
                 return [
                     'type' => 'group',
@@ -982,5 +1049,31 @@ class QueryBuilder
         $parts = explode('\\', $class);
 
         return end($parts);
+    }
+
+    /**
+     * @param array<mixed> $data
+     *
+     * @throws UpdateEntityException
+     */
+    private function ensureDataIsValidForConditionUse(array $data): void
+    {
+        if (($this->whereExpressions !== [] || $this->orWhereGroups !== []) && (\array_is_list($data) || $this->hasNonStringKeys($data) || isset($data['id']))) {
+            throw new UpdateEntityException(['Data for update with conditions must be an associative array without "id" field.']);
+        }
+    }
+
+    /**
+     * @param array<mixed> $data
+     */
+    private function hasNonStringKeys(array $data): bool
+    {
+        foreach (array_keys($data) as $key) {
+            if (! \is_string($key)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
