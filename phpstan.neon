@@ -7,6 +7,7 @@ parameters:
 	excludePaths:
 		- **/node_modules/*
 		- **/vendor/*
+		- tests
 	type_coverage:
 	    constant: 0
 
