@@ -23,8 +23,8 @@
     "require-dev": {
         "algoritma/php-coding-standards": "^3.0",
         "frosh/shopware-rector": "^0.5.9",
-        "phpunit/phpunit": "11.5.48",
-        "symfony/var-dumper": "^6.4|^7.3"
+        "phpunit/phpunit": "^11.5",
+        "symfony/var-dumper": "^6.4|^7.4"
     },
     "autoload": {
         "psr-4": {
