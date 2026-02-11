@@ -6,6 +6,7 @@ namespace Algoritma\ShopwareQueryBuilder\Tests\Unit\QueryBuilder;
 
 use Algoritma\ShopwareQueryBuilder\Exception\EntityNotFoundException;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\GroupExpression;
+use Algoritma\ShopwareQueryBuilder\Filter\Expressions\RawExpressionParser;
 use Algoritma\ShopwareQueryBuilder\Filter\FilterFactory;
 use Algoritma\ShopwareQueryBuilder\Mapping\AssociationResolver;
 use Algoritma\ShopwareQueryBuilder\Mapping\EntityDefinitionResolver;
@@ -64,7 +65,8 @@ class QueryBuilderTest extends TestCase
             $this->definitionResolver,
             $this->propertyResolver,
             $this->associationResolver,
-            $this->filterFactory
+            $this->filterFactory,
+            new RawExpressionParser()
         );
     }
 
@@ -87,7 +89,7 @@ class QueryBuilderTest extends TestCase
             ->with(ProductEntity::class, 'active')
             ->willReturn('active');
 
-        $this->queryBuilder->where('active', true);
+        $this->queryBuilder->where('active = true');
 
         $expressions = $this->queryBuilder->getWhereExpressions();
 
@@ -104,7 +106,7 @@ class QueryBuilderTest extends TestCase
             ->with(ProductEntity::class, 'stock')
             ->willReturn('stock');
 
-        $this->queryBuilder->where('stock', '>', 10);
+        $this->queryBuilder->where('stock > 10');
 
         $expressions = $this->queryBuilder->getWhereExpressions();
 
@@ -121,9 +123,9 @@ class QueryBuilderTest extends TestCase
             ->willReturnArgument(1);
 
         $this->queryBuilder
-            ->where('active', true)
-            ->where('stock', '>', 0)
-            ->where('price', '>=', 10);
+            ->where('active = true')
+            ->where('stock > 0')
+            ->where('price >= 10');
 
         $this->assertCount(3, $this->queryBuilder->getWhereExpressions());
     }
@@ -135,8 +137,8 @@ class QueryBuilderTest extends TestCase
             ->willReturnArgument(1);
 
         $this->queryBuilder->orWhere(function (QueryBuilder $q): void {
-            $q->where('stock', '>', 10)
-                ->where('featured', true);
+            $q->where('stock > 10')
+                ->where('featured = true');
         });
 
         $orGroups = $this->queryBuilder->getOrWhereGroups();
@@ -197,7 +199,7 @@ class QueryBuilderTest extends TestCase
             ->willReturnArgument(1);
 
         $this->queryBuilder->with('manufacturer', function (QueryBuilder $q): void {
-            $q->where('active', true);
+            $q->where('active = true');
         });
 
         $associations = $this->queryBuilder->getAssociations();
@@ -342,8 +344,8 @@ class QueryBuilderTest extends TestCase
 
         $expressions = $this->queryBuilder->getWhereExpressions();
 
-        $this->assertSame('starts with', $expressions[0]->getOperator());
-        $this->assertSame('SW-', $expressions[0]->getValue());
+        $this->assertSame('like', $expressions[0]->getOperator());
+        $this->assertSame('SW-%', $expressions[0]->getValue());
     }
 
     public function testWhereEndsWith(): void
@@ -356,8 +358,8 @@ class QueryBuilderTest extends TestCase
 
         $expressions = $this->queryBuilder->getWhereExpressions();
 
-        $this->assertSame('ends with', $expressions[0]->getOperator());
-        $this->assertSame('-001', $expressions[0]->getValue());
+        $this->assertSame('like', $expressions[0]->getOperator());
+        $this->assertSame('%-001', $expressions[0]->getValue());
     }
 
     public function testToCriteria(): void
@@ -367,7 +369,7 @@ class QueryBuilderTest extends TestCase
             ->willReturnArgument(1);
 
         $this->queryBuilder
-            ->where('active', true)
+            ->where('active = true')
             ->limit(10);
 
         $criteria = $this->queryBuilder->toCriteria();
@@ -539,8 +541,8 @@ class QueryBuilderTest extends TestCase
             ->willReturnArgument(1);
 
         $this->queryBuilder->whereGroup(function (QueryBuilder $q): void {
-            $q->where('stock', '>', 10)
-                ->where('active', true);
+            $q->where('stock > 10')
+                ->where('active = true');
         });
 
         $expressions = $this->queryBuilder->getWhereExpressions();
@@ -558,8 +560,8 @@ class QueryBuilderTest extends TestCase
             ->willReturnArgument(1);
 
         $this->queryBuilder->orWhereGroup(function (QueryBuilder $q): void {
-            $q->where('featured', true)
-                ->where('onSale', true);
+            $q->where('featured = true')
+                ->where('onSale = true');
         });
 
         $expressions = $this->queryBuilder->getWhereExpressions();
@@ -576,11 +578,11 @@ class QueryBuilderTest extends TestCase
             ->willReturnArgument(1);
 
         $this->queryBuilder
-            ->where('active', true)
+            ->where('active = true')
             ->whereGroup(function (QueryBuilder $q): void {
-                $q->where('stock', '>', 0)
+                $q->where('stock > 0')
                     ->orWhereGroup(function (QueryBuilder $nested): void {
-                        $nested->where('featured', true);
+                        $nested->where('featured = true');
                     });
             });
 
@@ -690,7 +692,7 @@ class QueryBuilderTest extends TestCase
             ->willReturnArgument(1);
 
         $this->queryBuilder
-            ->where('active', true)
+            ->where('active = true')
             ->limit(10)
             ->orderBy('name');
 
@@ -755,7 +757,7 @@ class QueryBuilderTest extends TestCase
             ->willReturnArgument(1);
 
         $this->queryBuilder->orWhere(function (QueryBuilder $q): void {
-            $q->where('featured', true);
+            $q->where('featured = true');
         });
 
         $debugArray = $this->queryBuilder->toDebugArray();
@@ -771,8 +773,8 @@ class QueryBuilderTest extends TestCase
             ->willReturnArgument(1);
 
         $this->queryBuilder->whereGroup(function (QueryBuilder $q): void {
-            $q->where('active', true)
-                ->where('stock', '>', 0);
+            $q->where('active = true')
+                ->where('stock > 0');
         });
 
         $debugArray = $this->queryBuilder->toDebugArray();
@@ -1105,7 +1107,7 @@ class QueryBuilderTest extends TestCase
             ->with((new Criteria())->addFilter(new EqualsFilter('name', 'Product Name')))
             ->willReturn($idResult);
 
-        $this->propertyResolver->expects($this->once())
+        $this->propertyResolver->expects($this->any())
             ->method('resolve')
             ->with(ProductEntity::class, 'name')
             ->willReturn('name');
@@ -1115,7 +1117,7 @@ class QueryBuilderTest extends TestCase
         $this->queryBuilder->setRepository($repository);
 
         $result = $this->queryBuilder
-            ->where('name', '=', 'Product Name')
+            ->where('name = "Product Name"')
             ->update($data)
         ;
 

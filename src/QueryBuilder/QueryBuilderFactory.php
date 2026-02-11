@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Algoritma\ShopwareQueryBuilder\QueryBuilder;
 
+use Algoritma\ShopwareQueryBuilder\Filter\Expressions\RawExpressionParser;
 use Algoritma\ShopwareQueryBuilder\Filter\FilterFactory;
 use Algoritma\ShopwareQueryBuilder\Mapping\AssociationResolver;
 use Algoritma\ShopwareQueryBuilder\Mapping\EntityDefinitionResolver;
@@ -25,6 +26,8 @@ class QueryBuilderFactory
 
     private readonly FilterFactory $filterFactory;
 
+    private readonly RawExpressionParser $parser;
+
     public function __construct(
         private readonly EntityDefinitionResolver $definitionResolver,
         private readonly DefinitionInstanceRegistry $definitionRegistry
@@ -32,6 +35,7 @@ class QueryBuilderFactory
         $this->propertyResolver = new PropertyResolver($definitionResolver);
         $this->associationResolver = new AssociationResolver($definitionResolver);
         $this->filterFactory = new FilterFactory();
+        $this->parser = new RawExpressionParser();
     }
 
     /**
@@ -47,7 +51,8 @@ class QueryBuilderFactory
             $this->definitionResolver,
             $this->propertyResolver,
             $this->associationResolver,
-            $this->filterFactory
+            $this->filterFactory,
+            $this->parser
         );
 
         if ($alias !== null) {

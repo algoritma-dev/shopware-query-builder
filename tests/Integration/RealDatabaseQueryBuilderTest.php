@@ -39,7 +39,7 @@ class RealDatabaseQueryBuilderTest extends KernelAwareTestCase
     public function testQueryActiveProducts(): void
     {
         $result = $this->queryBuilder
-            ->where('active', true)
+            ->where('active = true')
             ->get();
         $this->assertGreaterThan(0, $result->count());
         // Verify all returned products are active
@@ -54,7 +54,7 @@ class RealDatabaseQueryBuilderTest extends KernelAwareTestCase
     public function testQueryProductsByStock(): void
     {
         $result = $this->queryBuilder
-            ->where('stock', '>', 0)
+            ->where('stock > 0')
             ->get();
         $this->assertGreaterThan(0, $result->count());
         // Verify all returned products have stock
@@ -69,8 +69,8 @@ class RealDatabaseQueryBuilderTest extends KernelAwareTestCase
     public function testQueryWithMultipleFilters(): void
     {
         $result = $this->queryBuilder
-            ->where('active', true)
-            ->where('stock', '>', 0)
+            ->where('active = true')
+            ->where('stock > 0')
             ->get();
         // Should have active products with stock
         $this->assertGreaterThan(0, $result->count());
@@ -131,9 +131,11 @@ class RealDatabaseQueryBuilderTest extends KernelAwareTestCase
         $queryBuilder = \sw_query(ProductEntity::class);
         /** @var EntitySearchResult $result */
         $result = $queryBuilder
-            ->where('productNumber', 'starts with', 'SW-PROD')
+            ->whereStartsWith('productNumber', 'SW-PROD')
             ->get();
+
         $this->assertGreaterThan(0, $result->count());
+
         foreach ($result as $product) {
             $this->assertStringStartsWith('SW-PROD', $product->getProductNumber());
         }
@@ -196,7 +198,7 @@ class RealDatabaseQueryBuilderTest extends KernelAwareTestCase
         $queryBuilder = \sw_query(ProductEntity::class);
         /** @var EntitySearchResult $result */
         $result = $queryBuilder
-            ->where('active', true)
+            ->where('active = true')
             ->get();
         // All returned products must be active
         foreach ($result as $product) {
@@ -213,7 +215,7 @@ class RealDatabaseQueryBuilderTest extends KernelAwareTestCase
         $queryBuilder = \sw_query(ProductEntity::class);
         /** @var EntitySearchResult $result */
         $result = $queryBuilder
-            ->where('stock', '>', 0)
+            ->where('stock > 0')
             ->get();
 
         /** @var ProductEntity $product */
@@ -231,7 +233,7 @@ class RealDatabaseQueryBuilderTest extends KernelAwareTestCase
         $queryBuilder = \sw_query(ProductEntity::class);
         /** @var EntitySearchResult $result */
         $result = $queryBuilder
-            ->where('active', true)
+            ->where('active = true')
             ->get();
         $count = $result->count();
         $this->assertGreaterThan(0, $count);
@@ -247,7 +249,7 @@ class RealDatabaseQueryBuilderTest extends KernelAwareTestCase
 
         /** @var EntitySearchResult $result */
         $result = $queryBuilder
-            ->where('active', true)
+            ->where('active = true')
             ->get();
         $this->assertGreaterThan(0, $result->count());
         $first = $result->first();
@@ -320,7 +322,7 @@ class RealDatabaseQueryBuilderTest extends KernelAwareTestCase
         $this->expectException(UpdateEntityException::class);
 
         $queryBuilder
-            ->where('active', true)
+            ->where('active = true')
             ->update([
                 [
                     'name' => 'Updated Product Name',
@@ -334,7 +336,7 @@ class RealDatabaseQueryBuilderTest extends KernelAwareTestCase
         $queryBuilder = \sw_query(ProductEntity::class);
 
         $result = $queryBuilder
-            ->where('active', true)
+            ->where('active = true')
             ->update([
                 'name' => 'Updated Product Name',
             ]);

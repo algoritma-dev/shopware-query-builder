@@ -13,6 +13,6 @@ class ActiveScope implements ScopeInterface
 {
     public function apply(QueryBuilder $queryBuilder): void
     {
-        $queryBuilder->where('active', true);
+        $queryBuilder->where('active = true');
     }
 }

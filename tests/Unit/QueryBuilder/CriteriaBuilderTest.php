@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Algoritma\ShopwareQueryBuilder\Tests\Unit\QueryBuilder;
 
+use Algoritma\ShopwareQueryBuilder\Filter\Expressions\RawExpressionParser;
 use Algoritma\ShopwareQueryBuilder\Filter\FilterFactory;
 use Algoritma\ShopwareQueryBuilder\Mapping\AssociationResolver;
 use Algoritma\ShopwareQueryBuilder\Mapping\EntityDefinitionResolver;
@@ -53,7 +54,8 @@ class CriteriaBuilderTest extends TestCase
             $definitionResolver,
             $propertyResolver,
             $associationResolver,
-            $this->filterFactory
+            $this->filterFactory,
+            new RawExpressionParser()
         );
     }
 
@@ -66,7 +68,7 @@ class CriteriaBuilderTest extends TestCase
 
     public function testBuildWithWhereFilters(): void
     {
-        $this->queryBuilder->where('active', true);
+        $this->queryBuilder->where('active = true');
 
         $criteria = $this->criteriaBuilder->build($this->queryBuilder);
 
@@ -76,9 +78,9 @@ class CriteriaBuilderTest extends TestCase
     public function testBuildWithMultipleWhereFilters(): void
     {
         $this->queryBuilder
-            ->where('active', true)
-            ->where('stock', '>', 0)
-            ->where('price', '>=', 10);
+            ->where('active = true')
+            ->where('stock > 0')
+            ->where('price >= 10');
 
         $criteria = $this->criteriaBuilder->build($this->queryBuilder);
 
@@ -162,8 +164,8 @@ class CriteriaBuilderTest extends TestCase
     public function testBuildComplexQuery(): void
     {
         $this->queryBuilder
-            ->where('active', true)
-            ->where('stock', '>', 0)
+            ->where('active = true')
+            ->where('stock > 0')
             ->with('manufacturer')
             ->with('categories')
             ->orderBy('name', 'ASC')
@@ -214,8 +216,8 @@ class CriteriaBuilderTest extends TestCase
     public function testBuildWithWhereGroup(): void
     {
         $this->queryBuilder->whereGroup(function (QueryBuilder $q): void {
-            $q->where('stock', '>', 10)
-                ->where('active', true);
+            $q->where('stock > 10')
+                ->where('active = true');
         });
 
         $criteria = $this->criteriaBuilder->build($this->queryBuilder);
@@ -226,11 +228,11 @@ class CriteriaBuilderTest extends TestCase
     public function testBuildWithNestedGroups(): void
     {
         $this->queryBuilder
-            ->where('active', true)
+            ->where('active = true')
             ->whereGroup(function (QueryBuilder $q): void {
-                $q->where('stock', '>', 0)
+                $q->where('stock > 0')
                     ->orWhereGroup(function (QueryBuilder $nested): void {
-                        $nested->where('featured', true);
+                        $nested->where('featured = true');
                     });
             });
 

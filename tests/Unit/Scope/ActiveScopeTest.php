@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Algoritma\ShopwareQueryBuilder\Tests\Unit\Scope;
 
+use Algoritma\ShopwareQueryBuilder\Filter\Expressions\RawExpressionParser;
 use Algoritma\ShopwareQueryBuilder\Filter\FilterFactory;
 use Algoritma\ShopwareQueryBuilder\Mapping\AssociationResolver;
 use Algoritma\ShopwareQueryBuilder\Mapping\EntityDefinitionResolver;
@@ -36,7 +37,8 @@ class ActiveScopeTest extends TestCase
             $definitionResolver,
             $propertyResolver,
             $associationResolver,
-            $filterFactory
+            $filterFactory,
+            new RawExpressionParser()
         );
 
         $scope = new ActiveScope();

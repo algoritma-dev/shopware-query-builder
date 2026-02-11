@@ -1,5 +1,7 @@
 # Shopware Query Builder - Fluent API for Shopware 6.7
 
+**Version 3.0.0** - ⚠️ Breaking Changes: New raw SQL-like WHERE syntax
+
 A modern and intuitive library for building Shopware 6.7 queries with fluent syntax, alias support, and zero configuration.
 
 ## 🚀 Quick Start
@@ -9,36 +11,36 @@ use Shopware\Core\Content\Product\ProductEntity;
 
 // Simple query
 $products = sw_query(ProductEntity::class)
-    ->where('active', true)
-    ->where('stock', '>', 0)
+    ->where('active = true')
+    ->where('stock > 0')
     ->get();
 
 // Query with aliases and associations
 $products = sw_query(ProductEntity::class, 'p')
     ->with('manufacturer', 'm')
     ->with('categories', 'c')
-    ->where('p.active', true)
-    ->where('m.active', true)
-    ->where('c.visible', true)
+    ->where('p.active = true')
+    ->where('m.active = true')
+    ->where('c.visible = true')
     ->orderBy('p.name', 'ASC')
     ->limit(20)
     ->getEntities();
 
 // Get single entity
 $product = sw_query(ProductEntity::class)
-    ->where('id', $productId)
+    ->where('id = ' . $productId)
     ->firstOrFail();
 
 // Check existence
 $exists = sw_query(ProductEntity::class)
-    ->where('productNumber', 'SW-001')
+    ->where('productNumber = "SW-001"')
     ->exists();
 
 // Pagination
 $pagination = sw_query(ProductEntity::class, 'p')
     ->with('manufacturer', 'm')
-    ->where('p.active', true)
-    ->where('m.active', true)
+    ->where('p.active = true')
+    ->where('m.active = true')
     ->paginate(1, 20)
     ->getPaginated();
 ```
@@ -63,15 +65,15 @@ $pagination = sw_query(ProductEntity::class, 'p')
 // ✅ With aliases - Linear and clear!
 sw_query(ProductEntity::class, 'p')
     ->with('manufacturer', 'm')
-    ->where('p.active', true)
-    ->where('m.active', true)
+    ->where('p.active = true')
+    ->where('m.active = true')
     ->orderBy('m.name', 'ASC')
 
 // ❌ Without aliases - Complex nesting
 sw_query(ProductEntity::class)
-    ->where('active', true)
+    ->where('active = true')
     ->with('manufacturer', fn($q) =>
-        $q->where('active', true)
+        $q->where('active = true')
     )
 ```
 
@@ -92,17 +94,15 @@ sw_query(ProductEntity::class)
 ->getPaginated()     // Formatted pagination array
 ```
 
-### 📊 Advanced Query Methods $doctrineExtension = new \Shopware\Core\Profiling\Twig\DoctrineExtension();
-    echo $doctrineExtension->replaceQueryParameters(
-            $sql,
-            array_merge($params ?? array())
-        ) . ';' . PHP_EOL;
-// ADDED END
-    parent::startQuery($sql, $params, $types);
+### 📊 Advanced Query Methods
 ```php
-// Operators
-->where('field', 'value')           // Equals
-->where('field', '>', 10)           // Greater than
+// Raw SQL-like expressions
+->where('field = value')                      // Equals
+->where('field > 10')                         // Greater than
+->where('stock > 10 AND active = true')       // Compound AND (auto-creates GroupExpression)
+->where('featured = true OR promoted = true') // Compound OR (auto-creates GroupExpression)
+
+// Convenience methods (unchanged)
 ->whereBetween('field', 10, 100)    // Between values
 ->whereIn('field', [1, 2, 3])       // In array
 ->whereNotIn('field', [1, 2])       // Not in array
@@ -143,7 +143,7 @@ sw_query(ProductEntity::class)
 // Automatic validation with helpful messages
 try {
     sw_query(ProductEntity::class)
-        ->where('invalidProperty', true);
+        ->where('invalidProperty = true');
 } catch (InvalidPropertyException $e) {
     // "Property 'invalidProperty' does not exist on ProductEntity.
     //  Available properties: id, name, productNumber, stock, ..."
@@ -178,9 +178,9 @@ public function list(Request $request): Response
     $pagination = sw_query(ProductEntity::class, 'p')
         ->with('manufacturer', 'm')
         ->with('cover.media')
-        ->where('p.active', true)
-        ->where('p.stock', '>', 0)
-        ->where('m.active', true)
+        ->where('p.active = true')
+        ->where('p.stock > 0')
+        ->where('m.active = true')
         ->orderBy('p.name', 'ASC')
         ->paginate($request->query->getInt('page', 1), 20)
         ->getPaginated();
@@ -197,11 +197,11 @@ public function detail(string $id): Response
 {
     try {
         $product = sw_query(ProductEntity::class)
-            ->where('id', $id)
-            ->where('active', true)
+            ->where('id = "' . $id . '"')
+            ->where('active = true')
             ->with('manufacturer')
             ->with('categories', 'c')
-            ->where('c.visible', true)
+            ->where('c.visible = true')
             ->with('media.media')
             ->firstOrFail();
     } catch (EntityNotFoundException $e) {
@@ -222,11 +222,11 @@ public function search(Request $request): Response
 
     $products = sw_query(ProductEntity::class, 'p')
         ->with('manufacturer', 'm')
-        ->where('p.active', true)
-        ->where('p.name', 'like', $term)
+        ->where('p.active = true')
+        ->where('p.name LIKE "' . $term . '"')
         ->orWhere(function($q) use ($term) {
-            $q->where('description', 'like', $term) // like operator doesn't want %, Shopware ContainsFilter add it automatically
-              ->where('productNumber', 'like', $term);
+            $q->where('description LIKE "' . $term . '"') // LIKE operator doesn't need %, Shopware ContainsFilter adds it automatically
+              ->where('productNumber LIKE "' . $term . '"');
         })
         ->orderBy('p.name', 'ASC')
         ->limit(50)
@@ -243,13 +243,13 @@ $products = sw_query(ProductEntity::class, 'p')
     ->with('manufacturer', 'm')
     ->with('categories', 'c')
     ->with('tax', 't')
-    ->where('p.active', true)
+    ->where('p.active = true')
     ->whereBetween('p.price', $minPrice, $maxPrice)
-    ->where('p.stock', '>', 0)
-    ->where('m.active', true)
+    ->where('p.stock > 0')
+    ->where('m.active = true')
     ->whereIn('m.country', ['DE', 'AT', 'CH'])
     ->whereIn('c.id', $categoryIds)
-    ->where('t.taxRate', '<=', 19)
+    ->where('t.taxRate <= 19')
     ->orderBy('p.createdAt', 'DESC')
     ->paginate($page, 24)
     ->getPaginated();
@@ -262,7 +262,7 @@ use Shopware\Core\Content\Product\ProductEntity;
 
 // Calculate statistics
 $result = sw_query(ProductEntity::class)
-    ->where('active', true)
+    ->where('active = true')
     ->addCount('totalProducts')
     ->addSum('stock', 'totalStock')
     ->addAvg('price', 'avgPrice')
@@ -281,18 +281,18 @@ $avgPrice = $aggregations->get('avgPrice')->getAvg();
 ```php
 // Complex filtering with nested AND/OR groups
 $products = sw_query(ProductEntity::class, 'p')
-    ->where('p.active', true)
+    ->where('p.active = true')
     ->whereGroup(function($q) {
         // (stock > 0 OR availableStock > 0)
-        $q->where('stock', '>', 0)
+        $q->where('stock > 0')
           ->orWhereGroup(function($nested) {
-              $nested->where('availableStock', '>', 0);
+              $nested->where('availableStock > 0');
           });
     })
     ->whereGroup(function($q) {
         // AND (price >= 10 AND price <= 100)
-        $q->where('price', '>=', 10)
-          ->where('price', '<=', 100);
+        $q->where('price >= 10')
+          ->where('price <= 100');
     })
     ->getEntities();
 ```
@@ -308,7 +308,7 @@ class FeaturedScope implements ScopeInterface
 {
     public function apply(QueryBuilder $queryBuilder): void
     {
-        $queryBuilder->where('featured', true);
+        $queryBuilder->where('featured = true');
     }
 }
 
@@ -334,7 +334,7 @@ $products = sw_query(ProductEntity::class)
 ```php
 // Only active (non-deleted) entities (default)
 $products = sw_query(ProductEntity::class)
-    ->where('active', true)
+    ->where('active = true')
     ->getEntities();
 
 // Include soft-deleted entities
@@ -354,26 +354,26 @@ $deletedProducts = sw_query(ProductEntity::class)
 // Enable debug mode
 $products = sw_query(ProductEntity::class, 'p')
     ->with('manufacturer', 'm')
-    ->where('p.active', true)
-    ->where('m.active', true)
+    ->where('p.active = true')
+    ->where('m.active = true')
     ->debug() // Will print query info on execution
     ->getEntities();
 
 // Dump query info and continue
 sw_query(ProductEntity::class)
-    ->where('active', true)
+    ->where('active = true')
     ->orderBy('name')
     ->dump() // Prints query structure
     ->getEntities();
 
 // Dump and die (like dd() in Laravel)
 sw_query(ProductEntity::class)
-    ->where('active', true)
+    ->where('active = true')
     ->dd(); // Prints and exits
 
 // Get query as array for inspection
 $debugInfo = sw_query(ProductEntity::class, 'p')
-    ->where('p.active', true)
+    ->where('p.active = true')
     ->limit(10)
     ->toDebugArray();
 // Returns: ['entity' => '...', 'where' => [...], 'limit' => 10, ...]
@@ -384,7 +384,7 @@ $debugInfo = sw_query(ProductEntity::class, 'p')
 ```php
 // Update with conditions and get updated entities
 $products = sw_query(ProductEntity::class, 'p')
-    ->where('p.active', true)
+    ->where('p.active = true')
     ->update([/** data **/]); // Will return entities objects with updated data *NOTICE: flat associative array for updates with conditions*
 
 // Update without conditions (Shopware repository update standard behavior) and get entity objects with updated data
@@ -394,6 +394,106 @@ sw_query(ProductEntity::class)
     );
 ```
 
+## 🔄 Migration Guide v2.x → v3.0.0
+
+### ⚠️ BREAKING CHANGES
+
+Version 3.0.0 introduces a completely new WHERE clause syntax for improved readability and intuitive SQL-like expressions.
+
+### What Changed
+
+**OLD Syntax (v2.x):**
+```php
+->where('field', 'operator', 'value')  // 3 parameters
+->where('stock', '>', 10)
+->where('active', true)
+```
+
+**NEW Syntax (v3.0.0):**
+```php
+->where('field operator value')  // 1 parameter, raw SQL-like
+->where('stock > 10')
+->where('active = true')
+```
+
+### Migration Steps
+
+1. **Simple Equality:**
+   ```php
+   // Before
+   ->where('active', true)
+
+   // After
+   ->where('active = true')
+   ```
+
+2. **Comparison Operators:**
+   ```php
+   // Before
+   ->where('stock', '>', 10)
+   ->where('price', '>=', 100)
+
+   // After
+   ->where('stock > 10')
+   ->where('price >= 100')
+   ```
+
+3. **String Values (add quotes):**
+   ```php
+   // Before
+   ->where('status', 'active')
+
+   // After
+   ->where('status = "active"')
+   // or
+   ->where('status = active')  // unquoted also works
+   ```
+
+4. **Compound Expressions (Auto-Grouping):**
+   ```php
+   // Before
+   ->whereGroup(fn($q) =>
+       $q->where('stock', '>', 10)
+         ->where('active', true)
+   )
+
+   // After (much simpler!)
+   ->where('stock > 10 AND active = true')
+   ```
+
+5. **OR Logic:**
+   ```php
+   // Before
+   ->orWhere(fn($q) =>
+       $q->where('featured', true)
+         ->where('promoted', true)
+   )
+
+   // After
+   ->where('featured = true OR promoted = true')
+   ```
+
+### Convenience Methods (Still Work!)
+
+The following convenience methods still work as before:
+- `whereIn($field, $array)` - unchanged
+- `whereNotIn($field, $array)` - unchanged
+- `whereNull($field)` - unchanged
+- `whereNotNull($field)` - unchanged
+- `whereBetween($field, $min, $max)` - unchanged
+- `whereStartsWith($field, $value)` - unchanged
+- `whereEndsWith($field, $value)` - unchanged
+
+### Benefits
+
+✅ **More Intuitive**: SQL-like syntax developers already know
+✅ **Less Verbose**: One parameter instead of three
+✅ **Auto-Grouping**: AND/OR expressions automatically create groups
+✅ **Cleaner Code**: Easier to read and maintain
+
+### Need Help?
+
+Check the updated examples in the README or visit [AGENTS.md](AGENTS.md) for technical details.
 
 ## 🔧 Configuration
 
@@ -454,18 +554,18 @@ sw_query(ProductEntity::class)
 // ✅ Clear which field belongs to which entity
 sw_query(ProductEntity::class, 'p')
     ->with('manufacturer', 'm')
-    ->where('p.active', true)
-    ->where('m.active', true)
+    ->where('p.active = true')
+    ->where('m.active = true')
 ```
 
 ### 2. Register associations before using the alias
 ```php
 // ✅ Correct
 ->with('manufacturer', 'm')  // Register first
-->where('m.active', true)    // Then use
+->where('m.active = true')   // Then use
 
 // ❌ Error
-->where('m.active', true)    // Alias not registered!
+->where('m.active = true')   // Alias not registered!
 ->with('manufacturer', 'm')
 ```
 
@@ -473,12 +573,12 @@ sw_query(ProductEntity::class, 'p')
 ```php
 // ✅ Use aliases for simple filters
 ->with('manufacturer', 'm')
-->where('m.active', true)
+->where('m.active = true')
 
 // ✅ Use callbacks for OR logic
 ->with('categories', function($q) {
-    $q->where('visible', true)
-      ->orWhere('featured', true);
+    $q->where('visible = true')
+      ->orWhere('featured = true');
 })
 ```
 
@@ -486,7 +586,7 @@ sw_query(ProductEntity::class, 'p')
 ```php
 try {
     $product = sw_query(ProductEntity::class)
-        ->where('id', $id)
+        ->where('id = "' . $id . '"')
         ->getOneOrThrow();
 } catch (EntityNotFoundException $e) {
     // Handle not found
@@ -496,12 +596,12 @@ try {
 ### 5. Use exists() for checks
 ```php
 // ✅ More efficient
-if (sw_query(ProductEntity::class)->where('id', $id)->exists()) {
+if (sw_query(ProductEntity::class)->where('id = "' . $id . '"')->exists()) {
     // ...
 }
 
 // ❌ Less efficient
-if (sw_query(ProductEntity::class)->where('id', $id)->count() > 0) {
+if (sw_query(ProductEntity::class)->where('id = "' . $id . '"')->count() > 0) {
     // ...
 }
 ```
@@ -522,19 +622,19 @@ $result = $repository->search($criteria, $context);
 // ✅ Query Builder (intuitive)
 $result = sw_query(ProductEntity::class, 'p')
     ->with('manufacturer', 'm')
-    ->where('p.active', true)
-    ->where('p.stock', '>', 0)
-    ->where('m.active', true)
+    ->where('p.active = true')
+    ->where('p.stock > 0')
+    ->where('m.active = true')
     ->get();
 ```
 
 ### vs Doctrine QueryBuilder
 ```php
-// Doctrine-like syntax ma per Shopware!
+// Doctrine-like syntax for Shopware!
 sw_query(ProductEntity::class, 'p')
     ->with('manufacturer', 'm')
-    ->where('p.active', true)
-    ->where('m.country', 'DE')
+    ->where('p.active = true')
+    ->where('m.country = "DE"')
     ->orderBy('p.name', 'ASC')
     ->limit(20)
     ->getEntities();

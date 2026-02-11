@@ -9,6 +9,7 @@ use Algoritma\ShopwareQueryBuilder\Exception\InsertEntityException;
 use Algoritma\ShopwareQueryBuilder\Exception\InvalidAliasException;
 use Algoritma\ShopwareQueryBuilder\Exception\UpdateEntityException;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\GroupExpression;
+use Algoritma\ShopwareQueryBuilder\Filter\Expressions\RawExpressionParser;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\WhereExpression;
 use Algoritma\ShopwareQueryBuilder\Filter\FilterFactory;
 use Algoritma\ShopwareQueryBuilder\Mapping\AssociationResolver;
@@ -98,7 +99,8 @@ class QueryBuilder
         private readonly EntityDefinitionResolver $definitionResolver,
         private readonly PropertyResolver $propertyResolver,
         private readonly AssociationResolver $associationResolver,
-        private readonly FilterFactory $filterFactory
+        private readonly FilterFactory $filterFactory,
+        private readonly RawExpressionParser $parser
     ) {
         // Validate entity class at construction
         $this->definitionResolver->getDefinition($this->entityClass);
@@ -144,17 +146,37 @@ class QueryBuilder
     }
 
     /**
-     * Add WHERE condition (AND logic).
+     * Add WHERE condition using raw SQL-like expression.
      *
-     * @param string $property Property name (supports alias, e.g., 'p.active' or nested 'manufacturer.name')
-     * @param mixed $operatorOrValue Operator ('=', '>', '<', 'like', 'in', etc.) or value if operator omitted
-     * @param mixed $value Value (optional if operator omitted)
+     * Supports simple and compound expressions:
+     * - Simple: 'stock > 10'
+     * - Compound AND: 'stock > 10 AND active = true' (auto-creates GroupExpression)
+     * - Compound OR: 'featured = true OR promoted = true' (auto-creates GroupExpression)
+     *
+     * @param string $expression Raw SQL-like expression
      */
-    public function where(string $property, mixed $operatorOrValue, mixed $value = null): self
+    public function where(string $expression): self
     {
-        $this->whereExpressions[] = $this->createExpression($property, $operatorOrValue, $value);
+        $parsed = $this->parser->parse($expression);
+
+        if ($parsed['isCompound']) {
+            // Auto-create GroupExpression for AND/OR
+            return $this->autoCreateGroup($parsed);
+        }
+
+        // Simple expression
+        $whereExpr = WhereExpression::fromRaw($expression, $this->parser);
+        $this->whereExpressions[] = $whereExpr;
 
         return $this;
+    }
+
+    /**
+     * Alias for where() - for semantic clarity when using raw expressions.
+     */
+    public function whereRaw(string $expression): self
+    {
+        return $this->where($expression);
     }
 
     /**
@@ -167,7 +189,8 @@ class QueryBuilder
             $this->definitionResolver,
             $this->propertyResolver,
             $this->associationResolver,
-            $this->filterFactory
+            $this->filterFactory,
+            $this->parser
         );
 
         // Copy alias map to sub-query
@@ -219,7 +242,8 @@ class QueryBuilder
                 $this->definitionResolver,
                 $this->propertyResolver,
                 $this->associationResolver,
-                $this->filterFactory
+                $this->filterFactory,
+                $this->parser
             );
 
             // Copy alias map to sub-query for nested access
@@ -295,9 +319,8 @@ class QueryBuilder
      */
     public function whereBetween(string $property, string|int $min, string|int $max): self
     {
-        $resolvedProperty = $this->resolvePropertyWithAlias($property);
-        $this->where($resolvedProperty, '>=', $min);
-        $this->where($resolvedProperty, '<=', $max);
+        $this->where("{$property} >= {$min}");
+        $this->where("{$property} <= {$max}");
 
         return $this;
     }
@@ -309,7 +332,9 @@ class QueryBuilder
      */
     public function whereIn(string $property, array $values): self
     {
-        return $this->where($property, 'in', $values);
+        $valueList = implode(',', array_map(fn (mixed $v): mixed => is_string($v) ? "\"{$v}\"" : $v, $values));
+
+        return $this->where("{$property} IN ({$valueList})");
     }
 
     /**
@@ -319,7 +344,9 @@ class QueryBuilder
      */
     public function whereNotIn(string $property, array $values): self
     {
-        return $this->where($property, 'not in', $values);
+        $valueList = implode(',', array_map(fn (mixed $v): mixed => is_string($v) ? "\"{$v}\"" : $v, $values));
+
+        return $this->where("{$property} NOT IN ({$valueList})");
     }
 
     /**
@@ -327,7 +354,7 @@ class QueryBuilder
      */
     public function whereNull(string $property): self
     {
-        return $this->where($property, 'is null');
+        return $this->where("{$property} IS NULL");
     }
 
     /**
@@ -335,7 +362,7 @@ class QueryBuilder
      */
     public function whereNotNull(string $property): self
     {
-        return $this->where($property, 'is not null');
+        return $this->where("{$property} IS NOT NULL");
     }
 
     /**
@@ -343,7 +370,7 @@ class QueryBuilder
      */
     public function whereStartsWith(string $property, string $value): self
     {
-        return $this->where($property, 'starts with', $value);
+        return $this->where("{$property} LIKE \"{$value}%\"");
     }
 
     /**
@@ -351,7 +378,7 @@ class QueryBuilder
      */
     public function whereEndsWith(string $property, string $value): self
     {
-        return $this->where($property, 'ends with', $value);
+        return $this->where("{$property} LIKE \"%{$value}\"");
     }
 
     // Aggregation methods
@@ -439,7 +466,8 @@ class QueryBuilder
             $this->definitionResolver,
             $this->propertyResolver,
             $this->associationResolver,
-            $this->filterFactory
+            $this->filterFactory,
+            $this->parser
         );
 
         // Copy alias map to sub-query
@@ -975,26 +1003,32 @@ class QueryBuilder
     // Private helper methods
 
     /**
-     * Create WHERE expression from parameters.
+     * Auto-create GroupExpression from compound parsed expression.
+     *
+     * @param array{isCompound: bool, conditions: array<int, array{field: string, operator: string, value: mixed, raw: string}>, operator: string|null} $parsed
      */
-    private function createExpression(string $property, mixed $operatorOrValue, mixed $value): WhereExpression
+    private function autoCreateGroup(array $parsed): self
     {
-        // Risolvi la proprietà (gestione alias se presente)
-        $resolvedProperty = $this->resolvePropertyWithAlias($property);
+        $expressions = [];
 
-        if ($value === null) {
-            if (is_string($operatorOrValue)) {
-                if (! str_contains($operatorOrValue, ' ')) {
-                    $value = $operatorOrValue;
-                    $operatorOrValue = '=';
-                }
-            } else {
-                $value = $operatorOrValue;
-                $operatorOrValue = '=';
-            }
+        foreach ($parsed['conditions'] as $condition) {
+            // Resolve property with alias
+            $resolvedField = $this->resolvePropertyWithAlias($condition['field']);
+
+            $expressions[] = new WhereExpression(
+                $resolvedField,
+                $condition['operator'],
+                $condition['value'],
+                $condition['raw']
+            );
         }
 
-        return new WhereExpression($resolvedProperty, $operatorOrValue, $value);
+        $this->whereExpressions[] = new GroupExpression(
+            $expressions,
+            $parsed['operator'] // 'AND' or 'OR'
+        );
+
+        return $this;
     }
 
     /**

@@ -26,9 +26,9 @@ class RealDatabaseAdvancedFeaturesTest extends KernelAwareTestCase
 
         /** @var EntitySearchResult $result */
         $result = $queryBuilder
-            ->where('active', true)
-            ->where('stock', '>', 0)
-            ->where('stock', '<', 200)
+            ->where('active = true')
+            ->where('stock > 0')
+            ->where('stock < 200')
             ->get();
 
         /** @var ProductEntity $product */
@@ -67,7 +67,7 @@ class RealDatabaseAdvancedFeaturesTest extends KernelAwareTestCase
 
         /** @var EntitySearchResult $result */
         $result = $queryBuilder
-            ->where('name', 'like', 'shoe')
+            ->where('name LIKE "%shoe%"')
             ->get();
 
         // Verify we got results with "shoe" in the name
@@ -155,7 +155,7 @@ class RealDatabaseAdvancedFeaturesTest extends KernelAwareTestCase
         // Query for products without manufacturer
         /** @var EntitySearchResult $result */
         $result = $queryBuilder
-            ->where('manufacturerId', null)
+            ->whereNull('manufacturerId')
             ->get();
 
         // All products in our fixtures have manufacturers, so this should return 0
@@ -176,7 +176,7 @@ class RealDatabaseAdvancedFeaturesTest extends KernelAwareTestCase
 
         /** @var EntitySearchResult $result */
         $result = $queryBuilder
-            ->where('active', true)
+            ->where('active = true')
             ->get();
 
         if ($result->count() > 0) {
@@ -193,8 +193,8 @@ class RealDatabaseAdvancedFeaturesTest extends KernelAwareTestCase
 
         // Test that methods return the same instance for chaining
         $queryBuilder2 = $queryBuilder1
-            ->where('active', true)
-            ->where('stock', '>', 0);
+            ->where('active = true')
+            ->where('stock > 0');
 
         $this->assertSame($queryBuilder1, $queryBuilder2, 'Fluent methods should return the same instance');
     }
@@ -209,7 +209,7 @@ class RealDatabaseAdvancedFeaturesTest extends KernelAwareTestCase
 
         /** @var EntitySearchResult $result */
         $result = $queryBuilder
-            ->where('active', true)
+            ->where('active = true')
             ->with('manufacturer')
             ->with('categories')
             ->orderBy('name')

@@ -26,7 +26,7 @@ class RealDatabaseAssociationTest extends KernelAwareTestCase
 
         /** @var EntitySearchResult $result */
         $result = $queryBuilder
-            ->where('active', true)
+            ->where('active = true')
             ->with('manufacturer')
             ->get();
 
@@ -49,7 +49,7 @@ class RealDatabaseAssociationTest extends KernelAwareTestCase
 
         /** @var EntitySearchResult $result */
         $result = $queryBuilder
-            ->where('active', true)
+            ->where('active = true')
             ->with('categories')
             ->get();
 
@@ -73,7 +73,7 @@ class RealDatabaseAssociationTest extends KernelAwareTestCase
 
         /** @var EntitySearchResult $result */
         $result = $queryBuilder
-            ->where('active', true)
+            ->where('active = true')
             ->with('manufacturer')
             ->with('categories')
             ->get();
@@ -116,7 +116,7 @@ class RealDatabaseAssociationTest extends KernelAwareTestCase
 
         /** @var EntitySearchResult $result */
         $result = $queryBuilder
-            ->where('manufacturerId', $manufacturerId)
+            ->where('manufacturerId = "' . $manufacturerId . '"')
             ->with('manufacturer')
             ->get();
 

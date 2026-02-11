@@ -42,9 +42,9 @@ Our Query Builder provides a clean, fluent interface:
 // ✅ Query Builder (clean and intuitive)
 $result = sw_query(ProductEntity::class, 'p')
     ->with('manufacturer', 'm')
-    ->where('p.active', true)
-    ->where('p.stock', '>', 0)
-    ->where('m.active', true)
+    ->where('p.active = true')
+    ->where('p.stock > 0')
+    ->where('m.active = true')
     ->get();
 ```
 
@@ -213,23 +213,23 @@ class EntityDefinitionResolver
 ```php
 // ❌ Traditional nested callbacks
 sw_query(ProductEntity::class)
-    ->where('active', true)
+    ->where('active = true')
     ->with('manufacturer', fn($q) =>
-        $q->where('active', true)
-          ->where('country', 'DE')
+        $q->where('active = true')
+          ->where('country = "DE"')
     )
     ->with('categories', fn($q) =>
-        $q->where('visible', true)
+        $q->where('visible = true')
     )
 
 // ✅ With aliases - linear and clear!
 sw_query(ProductEntity::class, 'p')
     ->with('manufacturer', 'm')
     ->with('categories', 'c')
-    ->where('p.active', true)
-    ->where('m.active', true)
-    ->where('m.country', 'DE')
-    ->where('c.visible', true)
+    ->where('p.active = true')
+    ->where('m.active = true')
+    ->where('m.country = "DE"')
+    ->where('c.visible = true')
 ```
 
 **Why it matters**:
@@ -244,7 +244,7 @@ sw_query(ProductEntity::class, 'p')
 
 ```php
 try {
-    sw_query(ProductEntity::class)->where('invalidField', true);
+    sw_query(ProductEntity::class)->where('invalidField = true');
 } catch (InvalidPropertyException $e) {
     // Error: "Property 'invalidField' does not exist on ProductEntity.
     //         Available properties: id, name, productNumber, stock, active, ..."
@@ -257,20 +257,20 @@ try {
 
 ```php
 // Get results
-$products = sw_query(ProductEntity::class)->where('active', true)->get();
+$products = sw_query(ProductEntity::class)->where('active = true')->get();
 
 // Get one or throw
-$product = sw_query(ProductEntity::class)->where('id', $id)->getOneOrThrow();
+$product = sw_query(ProductEntity::class)->where('id = "' . $id . '"')->getOneOrThrow();
 
 // Check existence
-$exists = sw_query(ProductEntity::class)->where('id', $id)->exists();
+$exists = sw_query(ProductEntity::class)->where('id = "' . $id . '"')->exists();
 
 // Count
-$count = sw_query(ProductEntity::class)->where('active', true)->count();
+$count = sw_query(ProductEntity::class)->where('active = true')->count();
 
 // Pagination
 $pagination = sw_query(ProductEntity::class)
-    ->where('active', true)
+    ->where('active = true')
     ->paginate(2, 20)
     ->getPaginated();
 ```
@@ -281,12 +281,12 @@ All common SQL operators mapped to Shopware filters:
 
 | Operator | Shopware Filter | Example |
 |----------|----------------|---------|
-| `=`, `==` | EqualsFilter | `->where('active', true)` |
-| `!=`, `<>` | NotFilter + EqualsFilter | `->where('status', '!=', 'deleted')` |
-| `>`, `>=`, `<`, `<=` | RangeFilter | `->where('stock', '>', 0)` |
-| `like` | ContainsFilter | `->where('name', 'like', '%test%')` |
-| `in` | EqualsAnyFilter | `->where('id', 'in', $ids)` |
-| `not in` | NotFilter + EqualsAnyFilter | `->where('id', 'not in', $ids)` |
+| `=`, `==` | EqualsFilter | `->where('active = true')` |
+| `!=`, `<>` | NotFilter + EqualsFilter | `->where('status != "deleted"')` |
+| `>`, `>=`, `<`, `<=` | RangeFilter | `->where('stock > 0')` |
+| `LIKE` | ContainsFilter | `->where('name LIKE "%test%"')` |
+| `IN` | EqualsAnyFilter | `->whereIn('id', $ids)` |
+| `NOT IN` | NotFilter + EqualsAnyFilter | `->whereNotIn('id', $ids)` |
 
 ---
 
@@ -309,7 +309,8 @@ class QueryBuilder
     private ?int $offset = null;
 
     // Fluent methods
-    public function where(string $property, $operatorOrValue, $value = null): self
+    public function where(string $expression): self
+    public function whereRaw(string $expression): self
     public function with(string $association, $aliasOrCallback = null): self
     public function orderBy(string $property, string $direction = 'ASC'): self
     public function limit(int $limit): self
@@ -394,6 +395,59 @@ class FilterFactory
 }
 ```
 
+#### 5. RawExpressionParser
+
+Parses raw SQL-like expressions into structured data:
+
+```php
+class RawExpressionParser
+{
+    /**
+     * Parse expression like 'stock > 10' or 'stock > 10 AND active = true'
+     *
+     * @return array{
+     *     isCompound: bool,
+     *     conditions: array<array{field: string, operator: string, value: mixed, raw: string}>,
+     *     operator: 'AND'|'OR'|null
+     * }
+     */
+    public function parse(string $expression): array
+
+    public function isCompoundExpression(string $expression): bool
+}
+```
+
+**Key Features:**
+- Supports all operators: =, !=, <>, >, >=, <, <=, LIKE, IN, NOT IN, IS NULL, IS NOT NULL
+- Handles value types: strings (quoted), numbers, booleans, null, arrays
+- Detects logical operators (AND/OR) at top level
+- Parses compound expressions into multiple conditions
+- Returns raw expression for debugging
+
+**Example:**
+```php
+$parser->parse('stock > 10');
+// Returns:
+[
+    'isCompound' => false,
+    'conditions' => [
+        ['field' => 'stock', 'operator' => '>', 'value' => 10, 'raw' => 'stock > 10']
+    ],
+    'operator' => null
+]
+
+$parser->parse('stock > 10 AND active = true');
+// Returns:
+[
+    'isCompound' => true,
+    'conditions' => [
+        ['field' => 'stock', 'operator' => '>', 'value' => 10, 'raw' => 'stock > 10'],
+        ['field' => 'active', 'operator' => '=', 'value' => true, 'raw' => 'active = true']
+    ],
+    'operator' => 'AND'
+]
+```
+
 ### Alias Resolution System
 
 **How aliases work**:
@@ -448,18 +502,29 @@ sw_query(ProductEntity::class, 'p')
 
 #### Building Methods
 
-##### `where(string $property, mixed $operatorOrValue, mixed $value = null): self`
+##### `where(string $expression): self`
 
-Add AND WHERE condition.
+Add WHERE condition using raw SQL-like expression.
+
+**Supports:**
+- Simple expressions: `'stock > 10'`
+- Compound AND: `'stock > 10 AND active = true'` (auto-creates GroupExpression)
+- Compound OR: `'featured = true OR promoted = true'` (auto-creates GroupExpression)
 
 **Examples:**
 ```php
-->where('active', true)                    // Implicit equals
-->where('stock', '>', 0)                   // Comparison
-->where('name', 'like', '%test%')         // LIKE
-->where('id', 'in', ['id1', 'id2'])       // IN
-->where('p.manufacturer.active', true)    // Nested with alias
+->where('active = true')
+->where('stock > 0')
+->where('price >= 10')
+->where('status = "active"')
+->where('name LIKE "%test%"')
+->where('stock > 10 AND active = true')  // Auto-grouped
+->where('featured = true OR promoted = true')  // Auto-grouped
 ```
+
+##### `whereRaw(string $expression): self`
+
+Alias for `where()` - provides semantic clarity when using raw expressions.
 
 ##### `with(string $association, string|callable|null $aliasOrCallback = null): self`
 
@@ -570,8 +635,8 @@ Get formatted pagination data:
 
 ```php
 $products = sw_query(ProductEntity::class)
-    ->where('active', true)
-    ->where('stock', '>', 0)
+    ->where('active = true')
+    ->where('stock > 0')
     ->orderBy('name', 'ASC')
     ->limit(20)
     ->getEntities();
@@ -583,9 +648,9 @@ $products = sw_query(ProductEntity::class)
 $products = sw_query(ProductEntity::class, 'p')
     ->with('manufacturer', 'm')
     ->with('categories', 'c')
-    ->where('p.active', true)
-    ->where('m.active', true)
-    ->where('c.visible', true)
+    ->where('p.active = true')
+    ->where('m.active = true')
+    ->where('c.visible = true')
     ->orderBy('p.createdAt', 'DESC')
     ->get();
 ```
@@ -602,9 +667,9 @@ class ProductController extends AbstractController
         $pagination = sw_query(ProductEntity::class, 'p')
             ->with('manufacturer', 'm')
             ->with('cover.media')
-            ->where('p.active', true)
-            ->where('p.stock', '>', 0)
-            ->where('m.active', true)
+            ->where('p.active = true')
+            ->where('p.stock > 0')
+            ->where('m.active = true')
             ->orderBy('p.name', 'ASC')
             ->paginate($request->query->getInt('page', 1), 24)
             ->getPaginated();
@@ -617,8 +682,8 @@ class ProductController extends AbstractController
     {
         try {
             $product = sw_query(ProductEntity::class)
-                ->where('id', $id)
-                ->where('active', true)
+                ->where('id = "' . $id . '"')
+                ->where('active = true')
                 ->with('manufacturer')
                 ->with('categories')
                 ->with('media.media')
@@ -641,11 +706,11 @@ $term = $request->query->get('q');
 
 $products = sw_query(ProductEntity::class, 'p')
     ->with('manufacturer', 'm')
-    ->where('p.active', true)
-    ->where('p.name', 'like', "%{$term}%")
+    ->where('p.active = true')
+    ->where('p.name LIKE "' . $term . '"')
     ->orWhere(function($q) use ($term) {
-        $q->where('description', 'like', "%{$term}%")
-          ->where('productNumber', 'like', "%{$term}%");
+        $q->where('description LIKE "' . $term . '"')
+          ->where('productNumber LIKE "' . $term . '"');
     })
     ->orderBy('p.name', 'ASC')
     ->limit(50)
@@ -663,15 +728,15 @@ $products = sw_query(ProductEntity::class, 'p')
 sw_query(ProductEntity::class, 'p')
     ->with('manufacturer', 'm')
     ->with('categories', 'c')
-    ->where('p.active', true)
-    ->where('m.active', true)
-    ->where('c.visible', true)
+    ->where('p.active = true')
+    ->where('m.active = true')
+    ->where('c.visible = true')
 
 // ❌ Avoid - Nested callbacks are harder to read
 sw_query(ProductEntity::class)
-    ->where('active', true)
-    ->with('manufacturer', fn($q) => $q->where('active', true))
-    ->with('categories', fn($q) => $q->where('visible', true))
+    ->where('active = true')
+    ->with('manufacturer', fn($q) => $q->where('active = true'))
+    ->with('categories', fn($q) => $q->where('visible = true'))
 ```
 
 ### 2. Register Associations Before Using Aliases
@@ -679,10 +744,10 @@ sw_query(ProductEntity::class)
 ```php
 // ✅ Correct order
 ->with('manufacturer', 'm')    // Register first
-->where('m.active', true)      // Use after
+->where('m.active = true')     // Use after
 
 // ❌ Wrong - Will throw InvalidAliasException
-->where('m.active', true)      // Error: alias not registered!
+->where('m.active = true')     // Error: alias not registered!
 ->with('manufacturer', 'm')
 ```
 
@@ -690,12 +755,12 @@ sw_query(ProductEntity::class)
 
 ```php
 // ✅ Use exists() for existence checks
-if (sw_query(ProductEntity::class)->where('id', $id)->exists()) {
+if (sw_query(ProductEntity::class)->where('id = "' . $id . '"')->exists()) {
     // ...
 }
 
 // ❌ Avoid - Less efficient
-if (sw_query(ProductEntity::class)->where('id', $id)->count() > 0) {
+if (sw_query(ProductEntity::class)->where('id = "' . $id . '"')->count() > 0) {
     // ...
 }
 ```
@@ -705,7 +770,7 @@ if (sw_query(ProductEntity::class)->where('id', $id)->count() > 0) {
 ```php
 try {
     $product = sw_query(ProductEntity::class)
-        ->where('id', $id)
+        ->where('id = "' . $id . '"')
         ->getOneOrThrow();
 } catch (EntityNotFoundException $e) {
     // Handle not found
@@ -718,13 +783,13 @@ try {
 ```php
 // ✅ Always set a limit for lists
 $products = sw_query(ProductEntity::class)
-    ->where('active', true)
+    ->where('active = true')
     ->limit(100)
     ->getEntities();
 
 // ❌ Avoid - Could load thousands of records
 $products = sw_query(ProductEntity::class)
-    ->where('active', true)
+    ->where('active = true')
     ->getEntities();
 ```
 
@@ -746,7 +811,7 @@ $result = $repo->search($criteria, $context);
 
 // Query Builder
 $result = sw_query(ProductEntity::class)
-    ->where('active', true)
+    ->where('active = true')
     ->get();
 ```
 
@@ -837,7 +902,16 @@ composer phpstan
 
 ## Version History
 
-### v2.1 (Current)
+### v3.0.0 (Current) - BREAKING CHANGES
+- 🔥 **BREAKING**: Complete refactoring of WHERE clause syntax
+- ✨ Raw SQL-like expressions: `where('field operator value')`
+- ✨ Auto-grouping for compound AND/OR expressions
+- ✨ New `RawExpressionParser` for parsing expressions
+- 📚 Comprehensive migration guide
+- ♻️ All tests rewritten for new syntax
+- 🎯 Improved developer experience and code readability
+
+### v2.1
 - ✨ Added alias support for associations
 - ✨ Integrated execution methods (`get()`, `exists()`, etc.)
 - ✨ Global `sw_query()` helper function
@@ -875,7 +949,7 @@ Developed by [Algoritma](https://github.com/algoritma) for Shopware 6.7+
 
 ---
 
-**Last Updated:** 2026-01-16
-**Version:** 2.1
+**Last Updated:** 2026-02-11
+**Version:** 3.0.0
 **Target:** Shopware 6.7.x
 **PHP:** 8.2+

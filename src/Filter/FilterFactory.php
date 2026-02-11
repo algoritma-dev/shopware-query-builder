@@ -42,7 +42,7 @@ class FilterFactory
                 [new EqualsFilter($field, $value)]
             ),
             'range' => $this->createRangeFilter($field, $operator, $value),
-            'contains' => new ContainsFilter($field, (string) $value),
+            'contains' => $this->createLikeFilter($field, (string) $value),
             'in' => new EqualsAnyFilter($field, (array) $value),
             'not_in' => new NotFilter(
                 NotFilter::CONNECTION_AND,
@@ -73,5 +73,40 @@ class FilterFactory
         };
 
         return new RangeFilter($field, $parameters);
+    }
+
+    /**
+     * Create appropriate filter for LIKE operator based on wildcard pattern.
+     *
+     * - "value%" -> PrefixFilter (starts with)
+     * - "%value" -> SuffixFilter (ends with)
+     * - "%value%" -> ContainsFilter (contains)
+     * - "value" -> ContainsFilter (contains, no wildcards)
+     */
+    private function createLikeFilter(string $field, string $value): Filter
+    {
+        $startsWithPercent = str_starts_with($value, '%');
+        $endsWithPercent = str_ends_with($value, '%');
+
+        if ($startsWithPercent && $endsWithPercent) {
+            // %value% -> ContainsFilter
+            $cleanValue = substr($value, 1, -1);
+            return new ContainsFilter($field, $cleanValue);
+        }
+
+        if ($endsWithPercent) {
+            // value% -> PrefixFilter
+            $cleanValue = substr($value, 0, -1);
+            return new PrefixFilter($field, $cleanValue);
+        }
+
+        if ($startsWithPercent) {
+            // %value -> SuffixFilter
+            $cleanValue = substr($value, 1);
+            return new SuffixFilter($field, $cleanValue);
+        }
+
+        // No wildcards -> treat as contains
+        return new ContainsFilter($field, $value);
     }
 }
