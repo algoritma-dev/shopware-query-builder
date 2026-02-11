@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Algoritma\ShopwareQueryBuilder\Tests\Integration;
 
 use Algoritma\ShopwareQueryBuilder\QueryBuilder\QueryBuilder;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use Shopware\Core\Content\Product\ProductEntity;
 use Shopware\Core\Framework\DataAbstractionLayer\Entity;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
@@ -14,6 +15,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
  *
  * Tests scopes, complex filters, and aggregations against actual data.
  */
+#[CoversNothing]
 class RealDatabaseAdvancedFeaturesTest extends KernelAwareTestCase
 {
     /**

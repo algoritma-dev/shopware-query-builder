@@ -11,11 +11,15 @@ use Algoritma\ShopwareQueryBuilder\Mapping\EntityDefinitionResolver;
 use Algoritma\ShopwareQueryBuilder\Mapping\PropertyResolver;
 use Algoritma\ShopwareQueryBuilder\QueryBuilder\CriteriaBuilder;
 use Algoritma\ShopwareQueryBuilder\QueryBuilder\QueryBuilder;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Content\Product\ProductDefinition;
 use Shopware\Core\Content\Product\ProductEntity;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 
+#[CoversClass(CriteriaBuilder::class)]
+#[UsesClass(FilterFactory::class)]
 class CriteriaBuilderTest extends TestCase
 {
     private CriteriaBuilder $criteriaBuilder;

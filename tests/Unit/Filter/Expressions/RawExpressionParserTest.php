@@ -6,8 +6,10 @@ namespace Algoritma\ShopwareQueryBuilder\Tests\Unit\Filter\Expressions;
 
 use Algoritma\ShopwareQueryBuilder\Exception\InvalidOperatorException;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\RawExpressionParser;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(RawExpressionParser::class)]
 class RawExpressionParserTest extends TestCase
 {
     private RawExpressionParser $parser;

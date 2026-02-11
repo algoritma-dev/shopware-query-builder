@@ -6,6 +6,7 @@ namespace Algoritma\ShopwareQueryBuilder\Tests\Unit\Mapping;
 
 use Algoritma\ShopwareQueryBuilder\Exception\InvalidEntityException;
 use Algoritma\ShopwareQueryBuilder\Mapping\EntityDefinitionResolver;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Content\Product\ProductDefinition;
@@ -21,6 +22,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Field\ManyToOneAssociationField
 use Shopware\Core\Framework\DataAbstractionLayer\Field\StringField;
 use Shopware\Core\Framework\DataAbstractionLayer\FieldCollection;
 
+#[CoversClass(EntityDefinitionResolver::class)]
 class EntityDefinitionResolverTest extends TestCase
 {
     private EntityDefinitionResolver $resolver;

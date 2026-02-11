@@ -6,6 +6,7 @@ namespace Algoritma\ShopwareQueryBuilder\Tests\Integration;
 
 use Algoritma\ShopwareQueryBuilder\Exception\UpdateEntityException;
 use Algoritma\ShopwareQueryBuilder\QueryBuilder\QueryBuilder;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use Shopware\Core\Content\Product\ProductCollection;
 use Shopware\Core\Content\Product\ProductEntity;
 use Shopware\Core\Defaults;
@@ -22,6 +23,7 @@ use Shopware\Core\Framework\Uuid\Uuid;
  * These tests verify that the QueryBuilder produces correct Criteria
  * and that those Criteria successfully retrieve data from the database.
  */
+#[CoversNothing]
 class RealDatabaseQueryBuilderTest extends KernelAwareTestCase
 {
     private QueryBuilder $queryBuilder;

@@ -91,18 +91,21 @@ class FilterFactory
         if ($startsWithPercent && $endsWithPercent) {
             // %value% -> ContainsFilter
             $cleanValue = substr($value, 1, -1);
+
             return new ContainsFilter($field, $cleanValue);
         }
 
         if ($endsWithPercent) {
             // value% -> PrefixFilter
             $cleanValue = substr($value, 0, -1);
+
             return new PrefixFilter($field, $cleanValue);
         }
 
         if ($startsWithPercent) {
             // %value -> SuffixFilter
             $cleanValue = substr($value, 1);
+
             return new SuffixFilter($field, $cleanValue);
         }
 

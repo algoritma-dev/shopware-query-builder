@@ -14,6 +14,8 @@ use Algoritma\ShopwareQueryBuilder\Mapping\PropertyResolver;
 use Algoritma\ShopwareQueryBuilder\QueryBuilder\QueryBuilder;
 use Algoritma\ShopwareQueryBuilder\Scope\ActiveScope;
 use Algoritma\ShopwareQueryBuilder\Scope\ScopeInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Content\Product\ProductCollection;
@@ -28,6 +30,9 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\IdSearchResult;
 
+#[CoversClass(QueryBuilder::class)]
+#[UsesClass(FilterFactory::class)]
+#[UsesClass(RawExpressionParser::class)]
 class QueryBuilderTest extends TestCase
 {
     private QueryBuilder $queryBuilder;
