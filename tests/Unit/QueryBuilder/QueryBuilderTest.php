@@ -485,7 +485,7 @@ class QueryBuilderTest extends TestCase
 
     public function testAddCount(): void
     {
-        $this->queryBuilder->addCount('totalProducts');
+        $this->queryBuilder->addCount('id', 'totalProducts');
 
         $aggregations = $this->queryBuilder->getAggregations();
 
@@ -735,7 +735,7 @@ class QueryBuilderTest extends TestCase
             ->willReturnArgument(1);
 
         $this->queryBuilder
-            ->addCount('total')
+            ->addCount('id', 'total')
             ->addSum('stock', 'totalStock');
 
         $debugArray = $this->queryBuilder->toDebugArray();

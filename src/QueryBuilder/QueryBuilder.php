@@ -146,17 +146,28 @@ class QueryBuilder
     }
 
     /**
-     * Add WHERE condition using raw SQL-like expression.
+     * Add WHERE condition using raw SQL-like expression or closure.
      *
-     * Supports simple and compound expressions:
-     * - Simple: 'stock > 10'
-     * - Compound AND: 'stock > 10 AND active = true' (auto-creates GroupExpression)
-     * - Compound OR: 'featured = true OR promoted = true' (auto-creates GroupExpression)
+     * Accepts two forms:
+     * 1. String expression:
+     *    - Simple: 'stock > 10'
+     *    - Compound AND: 'stock > 10 AND active = true' (auto-creates GroupExpression)
+     *    - Compound OR: 'featured = true OR promoted = true' (auto-creates GroupExpression)
      *
-     * @param string $expression Raw SQL-like expression
+     * 2. Closure for grouping (conditions inside are joined with AND by default):
+     *    - where(function($q) { $q->where('a')->where('b'); })  // (a AND b)
+     *    - where(function($q) { $q->where('a')->orWhere('b'); }) // (a OR b)
+     *
+     * @param string|callable $expression Raw SQL-like expression or closure
      */
-    public function where(string $expression): self
+    public function where(string|callable $expression): self
     {
+        // Handle closure for grouped conditions
+        if (is_callable($expression)) {
+            /** @phpstan-ignore method.deprecated */
+            return $this->whereGroup($expression, 'AND');
+        }
+
         $parsed = $this->parser->parse($expression);
 
         if ($parsed['isCompound']) {
@@ -180,25 +191,65 @@ class QueryBuilder
     }
 
     /**
-     * Add OR WHERE group.
+     * Add OR WHERE condition using raw SQL-like expression or closure.
+     *
+     * Accepts two forms:
+     * 1. String expression:
+     *    - Simple: 'stock > 10' (joined with OR)
+     *    - Compound: 'stock > 10 AND active = true' (auto-creates GroupExpression, joined with OR)
+     *
+     * 2. Closure for OR grouping (conditions inside are joined with AND by default):
+     *    - orWhere(function($q) { $q->where('a')->where('b'); })  // OR (a AND b)
+     *    - orWhere(function($q) { $q->where('a')->orWhere('b'); }) // OR (a OR b)
+     *
+     * @param string|callable $expression Raw SQL-like expression or closure
      */
-    public function orWhere(callable $callback): self
+    public function orWhere(string|callable $expression): self
     {
-        $subQuery = new self(
-            $this->entityClass,
-            $this->definitionResolver,
-            $this->propertyResolver,
-            $this->associationResolver,
-            $this->filterFactory,
-            $this->parser
-        );
+        // Handle closure for OR grouped conditions
+        if (is_callable($expression)) {
+            $subQuery = new self(
+                $this->entityClass,
+                $this->definitionResolver,
+                $this->propertyResolver,
+                $this->associationResolver,
+                $this->filterFactory,
+                $this->parser
+            );
 
-        // Copy alias map to sub-query
-        $subQuery->aliasMap = $this->aliasMap;
+            // Copy alias map to sub-query
+            $subQuery->aliasMap = $this->aliasMap;
 
-        $callback($subQuery);
+            $expression($subQuery);
 
-        $this->orWhereGroups[] = $subQuery->getWhereExpressions();
+            $this->orWhereGroups[] = $subQuery->getWhereExpressions();
+
+            return $this;
+        }
+
+        // Handle string expression - add to OR groups as single expression
+        $parsed = $this->parser->parse($expression);
+
+        if ($parsed['isCompound']) {
+            // Create GroupExpression for compound expression and add to OR groups
+            $expressions = [];
+            foreach ($parsed['conditions'] as $condition) {
+                $resolvedField = $this->resolvePropertyWithAlias($condition['field']);
+                $expressions[] = new WhereExpression(
+                    $resolvedField,
+                    $condition['operator'],
+                    $condition['value'],
+                    $condition['raw']
+                );
+            }
+            $this->orWhereGroups[] = [
+                new GroupExpression($expressions, $parsed['operator']),
+            ];
+        } else {
+            // Simple expression - add as single OR condition
+            $whereExpr = WhereExpression::fromRaw($expression, $this->parser);
+            $this->orWhereGroups[] = [$whereExpr];
+        }
 
         return $this;
     }
@@ -386,11 +437,13 @@ class QueryBuilder
     /**
      * Add COUNT aggregation.
      *
+     * @param string $field Field to count (default: 'id')
      * @param string $name Aggregation name (default: 'count')
      */
-    public function addCount(string $name = 'count'): self
+    public function addCount(string $field = 'id', string $name = 'count'): self
     {
-        $this->aggregations[$name] = new CountAggregation($name, 'id');
+        $resolvedField = $this->resolvePropertyWithAlias($field);
+        $this->aggregations[$name] = new CountAggregation($name, $resolvedField);
 
         return $this;
     }
@@ -456,6 +509,8 @@ class QueryBuilder
     /**
      * Add grouped WHERE conditions (AND logic by default).
      *
+     * @deprecated Use where(callable) or orWhere(callable) instead
+     *
      * @param callable $callback Callback that receives a sub-query builder
      * @param string $operator 'AND' or 'OR' (default: 'AND')
      */
@@ -485,6 +540,8 @@ class QueryBuilder
 
     /**
      * Add grouped WHERE conditions with OR logic.
+     *
+     * @deprecated Use orWhere(callable) instead
      *
      * @param callable $callback Callback that receives a sub-query builder
      */

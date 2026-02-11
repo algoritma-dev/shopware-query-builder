@@ -109,11 +109,7 @@ class CriteriaBuilder
 
         foreach ($orGroups as $group) {
             $filters = array_map(
-                fn (WhereExpression $expr): Filter => $this->filterFactory->create(
-                    $expr->getField(),
-                    $expr->getOperator(),
-                    $expr->getValue()
-                ),
+                $this->convertExpressionToFilter(...),
                 $group
             );
 
@@ -126,6 +122,44 @@ class CriteriaBuilder
                 );
             }
         }
+    }
+
+    /**
+     * Convert WhereExpression or GroupExpression to Filter.
+     */
+    private function convertExpressionToFilter(WhereExpression|GroupExpression $expr): Filter
+    {
+        if ($expr instanceof GroupExpression) {
+            return $this->convertGroupToFilter($expr);
+        }
+
+        return $this->filterFactory->create(
+            $expr->getField(),
+            $expr->getOperator(),
+            $expr->getValue()
+        );
+    }
+
+    /**
+     * Convert GroupExpression to MultiFilter.
+     */
+    private function convertGroupToFilter(GroupExpression $group): MultiFilter
+    {
+        $expressions = $group->getExpressions();
+        $operator = $group->getOperator();
+
+        // Recursively convert nested expressions to filters
+        $filters = array_map(
+            $this->convertExpressionToFilter(...),
+            $expressions
+        );
+
+        // Determine connection type based on operator
+        $connection = $operator === 'OR'
+            ? MultiFilter::CONNECTION_OR
+            : MultiFilter::CONNECTION_AND;
+
+        return new MultiFilter($connection, $filters);
     }
 
     /**
