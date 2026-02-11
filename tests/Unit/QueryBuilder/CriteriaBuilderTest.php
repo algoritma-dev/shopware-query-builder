@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Algoritma\ShopwareQueryBuilder\Tests\Unit\QueryBuilder;
 
+use Algoritma\ShopwareQueryBuilder\Filter\Expressions\GroupExpression;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\RawExpressionParser;
+use Algoritma\ShopwareQueryBuilder\Filter\Expressions\WhereExpression;
 use Algoritma\ShopwareQueryBuilder\Filter\FilterFactory;
+use Algoritma\ShopwareQueryBuilder\Filter\OperatorMapper;
 use Algoritma\ShopwareQueryBuilder\Mapping\AssociationResolver;
 use Algoritma\ShopwareQueryBuilder\Mapping\EntityDefinitionResolver;
 use Algoritma\ShopwareQueryBuilder\Mapping\PropertyResolver;
@@ -20,6 +23,11 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 
 #[CoversClass(CriteriaBuilder::class)]
 #[UsesClass(FilterFactory::class)]
+#[UsesClass(GroupExpression::class)]
+#[UsesClass(RawExpressionParser::class)]
+#[UsesClass(WhereExpression::class)]
+#[UsesClass(OperatorMapper::class)]
+#[UsesClass(QueryBuilder::class)]
 class CriteriaBuilderTest extends TestCase
 {
     private CriteriaBuilder $criteriaBuilder;

@@ -7,10 +7,13 @@ namespace Algoritma\ShopwareQueryBuilder\Tests\Unit\QueryBuilder;
 use Algoritma\ShopwareQueryBuilder\Exception\EntityNotFoundException;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\GroupExpression;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\RawExpressionParser;
+use Algoritma\ShopwareQueryBuilder\Filter\Expressions\WhereExpression;
 use Algoritma\ShopwareQueryBuilder\Filter\FilterFactory;
+use Algoritma\ShopwareQueryBuilder\Filter\OperatorMapper;
 use Algoritma\ShopwareQueryBuilder\Mapping\AssociationResolver;
 use Algoritma\ShopwareQueryBuilder\Mapping\EntityDefinitionResolver;
 use Algoritma\ShopwareQueryBuilder\Mapping\PropertyResolver;
+use Algoritma\ShopwareQueryBuilder\QueryBuilder\CriteriaBuilder;
 use Algoritma\ShopwareQueryBuilder\QueryBuilder\QueryBuilder;
 use Algoritma\ShopwareQueryBuilder\Scope\ActiveScope;
 use Algoritma\ShopwareQueryBuilder\Scope\ScopeInterface;
@@ -33,6 +36,11 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\IdSearchResult;
 #[CoversClass(QueryBuilder::class)]
 #[UsesClass(FilterFactory::class)]
 #[UsesClass(RawExpressionParser::class)]
+#[UsesClass(CriteriaBuilder::class)]
+#[UsesClass(OperatorMapper::class)]
+#[UsesClass(WhereExpression::class)]
+#[UsesClass(GroupExpression::class)]
+#[UsesClass(ActiveScope::class)]
 class QueryBuilderTest extends TestCase
 {
     private QueryBuilder $queryBuilder;

@@ -11,7 +11,6 @@ use Shopware\Core\TestBootstrapper;
 $_ENV['APP_ENV'] = 'test';
 $_SERVER['APP_ENV'] = 'test';
 
-// Assicurati che l'autoload sia disponibile
 $autoloadPath = dirname(__DIR__, 4) . '/vendor/autoload.php';
 if (! file_exists($autoloadPath)) {
     throw new RuntimeException('Composer dependencies are not installed. Run "composer install"');

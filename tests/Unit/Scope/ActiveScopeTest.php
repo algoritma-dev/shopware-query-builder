@@ -5,16 +5,24 @@ declare(strict_types=1);
 namespace Algoritma\ShopwareQueryBuilder\Tests\Unit\Scope;
 
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\RawExpressionParser;
+use Algoritma\ShopwareQueryBuilder\Filter\Expressions\WhereExpression;
 use Algoritma\ShopwareQueryBuilder\Filter\FilterFactory;
 use Algoritma\ShopwareQueryBuilder\Mapping\AssociationResolver;
 use Algoritma\ShopwareQueryBuilder\Mapping\EntityDefinitionResolver;
 use Algoritma\ShopwareQueryBuilder\Mapping\PropertyResolver;
 use Algoritma\ShopwareQueryBuilder\QueryBuilder\QueryBuilder;
 use Algoritma\ShopwareQueryBuilder\Scope\ActiveScope;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Content\Product\ProductDefinition;
 use Shopware\Core\Content\Product\ProductEntity;
 
+#[CoversClass(ActiveScope::class)]
+#[UsesClass(FilterFactory::class)]
+#[UsesClass(RawExpressionParser::class)]
+#[UsesClass(QueryBuilder::class)]
+#[UsesClass(WhereExpression::class)]
 class ActiveScopeTest extends TestCase
 {
     public function testApplyAddsActiveCondition(): void

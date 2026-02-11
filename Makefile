@@ -16,6 +16,9 @@ cs-check:
 phpunit:
 	$(DOCKER) vendor/bin/phpunit
 
+coverage:
+	$(DOCKER) vendor/bin/phpunit --coverage-xml .phpunit-coverage --testsuite Unit --bootstrap vendor/autoload.php
+
 rector-fix:
 	$(DOCKER) vendor/bin/rector process
 
