@@ -1,7 +1,5 @@
 # Shopware Query Builder - Fluent API for Shopware 6.7
 
-**Version 3.0.0** - ⚠️ Breaking Changes: New raw SQL-like WHERE syntax
-
 A modern and intuitive library for building Shopware 6.7 queries with fluent syntax, alias support, and zero configuration.
 
 ## 🚀 Quick Start
@@ -45,31 +43,31 @@ $pagination = sw_query(ProductEntity::class, 'p')
     ->getPaginated();
 ```
 
-## ✨ Features
+## Features
 
-### 🎯 Zero Configuration
-- ✅ No manual mapping required
-- ✅ Directly uses Shopware's `EntityDefinition`
-- ✅ Always synchronized with Definitions
-- ✅ Automatic validation of properties and associations
+### Zero Configuration
+- No manual mapping required
+- Directly uses Shopware's `EntityDefinition`
+- Always synchronized with Definitions
+- Automatic validation of properties and associations
 
-### 🚀 Advanced Features
-- ✅ **Aggregations**: `addCount()`, `addSum()`, `addAvg()`, `addMin()`, `addMax()`
-- ✅ **Nested Groups**: `whereGroup()`, `orWhereGroup()` with infinite nesting
-- ✅ **Reusable Scopes**: `scope()`, `scopes()` for query logic reuse
-- ✅ **Soft Deletes**: `withTrashed()`, `onlyTrashed()`, `withoutTrashed()`
-- ✅ **Query Debugging**: `debug()`, `dump()`, `dd()`, `toDebugArray()`
+### Advanced Features
+- **Aggregations**: `addCount()`, `addSum()`, `addAvg()`, `addMin()`, `addMax()`
+- **Nested Groups**: `whereGroup()`, `orWhereGroup()` with infinite nesting
+- **Reusable Scopes**: `scope()`, `scopes()` for query logic reuse
+- **Soft Deletes**: `withTrashed()`, `onlyTrashed()`, `withoutTrashed()`
+- **Query Debugging**: `debug()`, `dump()`, `dd()`, `toDebugArray()`
 
-### 🌟 Aliases for Linear Queries
+### Aliases for Linear Queries
 ```php
-// ✅ With aliases - Linear and clear!
+// With aliases - Linear and clear!
 sw_query(ProductEntity::class, 'p')
     ->with('manufacturer', 'm')
     ->where('p.active = true')
     ->where('m.active = true')
     ->orderBy('m.name', 'ASC')
 
-// ❌ Without aliases - Complex nesting
+// Without aliases - Complex nesting
 sw_query(ProductEntity::class)
     ->where('active = true')
     ->with('manufacturer', fn($q) =>
@@ -77,7 +75,7 @@ sw_query(ProductEntity::class)
     )
 ```
 
-### 🔥 Integrated Execution
+### Integrated Execution
 ```php
 ->get()              // EntitySearchResult complete
 ->getEntities()      // Only EntityCollection
@@ -94,7 +92,7 @@ sw_query(ProductEntity::class)
 ->getPaginated()     // Formatted pagination array
 ```
 
-### 📊 Advanced Query Methods
+### Advanced Query Methods
 ```php
 // Raw SQL-like expressions
 ->where('field = value')                      // Equals
@@ -138,7 +136,7 @@ sw_query(ProductEntity::class)
 ->toDebugArray()                    // Get query as array
 ```
 
-### 🛡️ Type Safety and Validation
+### Type Safety and Validation
 ```php
 // Automatic validation with helpful messages
 try {
@@ -150,13 +148,13 @@ try {
 }
 ```
 
-## 📦 Installation
+## Installation
 
 ```bash
 composer require yourvendor/shopware-query-builder
 ```
 
-## 📚 Documentation
+## Documentation
 
 ### Main Documents
 
@@ -167,7 +165,7 @@ composer require yourvendor/shopware-query-builder
   - Best Practices
   - Complete API Reference
 
-## 🎨 Examples
+## Examples
 
 ### Example 1: Product List
 
@@ -394,9 +392,9 @@ sw_query(ProductEntity::class)
     );
 ```
 
-## 🔄 Migration Guide v2.x → v3.0.0
+## Migration Guide v2.x → v3.0.0
 
-### ⚠️ BREAKING CHANGES
+###️ BREAKING CHANGES
 
 Version 3.0.0 introduces a completely new WHERE clause syntax for improved readability and intuitive SQL-like expressions.
 
@@ -484,17 +482,6 @@ The following convenience methods still work as before:
 - `whereStartsWith($field, $value)` - unchanged
 - `whereEndsWith($field, $value)` - unchanged
 
-### Benefits
-
-✅ **More Intuitive**: SQL-like syntax developers already know
-✅ **Less Verbose**: One parameter instead of three
-✅ **Auto-Grouping**: AND/OR expressions automatically create groups
-✅ **Cleaner Code**: Easier to read and maintain
-
-### Need Help?
-
-Check the updated examples in the README or visit [AGENTS.md](AGENTS.md) for technical details.
-
 ## 🔧 Configuration
 
 ### 1. Register services in `services.xml`
@@ -547,11 +534,11 @@ Check the updated examples in the README or visit [AGENTS.md](AGENTS.md) for tec
 }
 ```
 
-## 💡 Best Practices
+## Best Practices
 
 ### 1. Use aliases for clear queries
 ```php
-// ✅ Clear which field belongs to which entity
+// Clear which field belongs to which entity
 sw_query(ProductEntity::class, 'p')
     ->with('manufacturer', 'm')
     ->where('p.active = true')
@@ -560,22 +547,22 @@ sw_query(ProductEntity::class, 'p')
 
 ### 2. Register associations before using the alias
 ```php
-// ✅ Correct
+// Correct
 ->with('manufacturer', 'm')  // Register first
 ->where('m.active = true')   // Then use
 
-// ❌ Error
+// Error
 ->where('m.active = true')   // Alias not registered!
 ->with('manufacturer', 'm')
 ```
 
 ### 3. Use callbacks for complex OR
 ```php
-// ✅ Use aliases for simple filters
+// Use aliases for simple filters
 ->with('manufacturer', 'm')
 ->where('m.active = true')
 
-// ✅ Use callbacks for OR logic
+// Use callbacks for OR logic
 ->with('categories', function($q) {
     $q->where('visible = true')
       ->orWhere('featured = true');
@@ -595,22 +582,22 @@ try {
 
 ### 5. Use exists() for checks
 ```php
-// ✅ More efficient
+// More efficient
 if (sw_query(ProductEntity::class)->where('id = "' . $id . '"')->exists()) {
     // ...
 }
 
-// ❌ Less efficient
+// Less efficient
 if (sw_query(ProductEntity::class)->where('id = "' . $id . '"')->count() > 0) {
     // ...
 }
 ```
 
-## 🎯 Advantages
+## Advantages
 
 ### vs Native Criteria
 ```php
-// ❌ Shopware Criteria (verbose)
+// Shopware Criteria (verbose)
 $criteria = new Criteria();
 $criteria->addFilter(new EqualsFilter('active', true));
 $criteria->addFilter(new RangeFilter('stock', [RangeFilter::GT => 0]));
@@ -619,7 +606,7 @@ $criteria->getAssociation('manufacturer')
     ->addFilter(new EqualsFilter('active', true));
 $result = $repository->search($criteria, $context);
 
-// ✅ Query Builder (intuitive)
+// Query Builder (intuitive)
 $result = sw_query(ProductEntity::class, 'p')
     ->with('manufacturer', 'm')
     ->where('p.active = true')
@@ -640,16 +627,16 @@ sw_query(ProductEntity::class, 'p')
     ->getEntities();
 ```
 
-## 📊 Performance
+## Performance
 
-- ✅ **Zero overhead**: Compiled to `Criteria` identical
-- ✅ **Runtime validation**: Errors before execution
-- ✅ **Caching**: EntityDefinition cached in memory
-- ✅ **Lazy loading**: Repository resolved on-demand
-- ✅ **Efficient aggregations**: Native Shopware aggregation support
-- ✅ **Optimized grouping**: Recursive compilation to MultiFilter
+- **Zero overhead**: Compiled to `Criteria` identical
+- **Runtime validation**: Errors before execution
+- **Caching**: EntityDefinition cached in memory
+- **Lazy loading**: Repository resolved on-demand
+- **Efficient aggregations**: Native Shopware aggregation support
+- **Optimized grouping**: Recursive compilation to MultiFilter
 
-## 🧪 Testing
+## Testing
 
 The library includes comprehensive test coverage:
 
@@ -663,15 +650,15 @@ Run tests:
 docker run --rm -u 1000 -v .:/app -w /app composer ./vendor/bin/phpunit
 ```
 
-## 🤝 Contributing
+## Contributing
 
 Contributions welcome! See [AGENTS.md](AGENTS.md) for architectural details.
 
-## 📝 License
+## License
 
 MIT
 
-## 🙏 Credits
+## Credits
 
 Developed for Shopware 6.7+ with focus on:
 - Developer Experience
