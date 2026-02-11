@@ -14,7 +14,7 @@ cs-check:
 	$(DOCKER) vendor/bin/php-cs-fixer fix --dry-run --diff
 
 phpunit:
-	$(DOCKER) vendor/bin/phpunit --testdox
+	$(DOCKER) vendor/bin/phpunit
 
 rector-fix:
 	$(DOCKER) vendor/bin/rector process
