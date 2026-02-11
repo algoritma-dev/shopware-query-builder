@@ -1,0 +1,59 @@
+name: QA Analysis & Tests
+
+on:
+    push:
+        branches: [ main, develop, feature/** ]
+    pull_request:
+        branches: [ main, develop ]
+
+jobs:
+    qa:
+        name: QA Analysis & Tests (PHP ${{ matrix.php-version }}, Shopware ${{ matrix.shopware }})
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                php-version: [ "8.2", "8.3", "8.4", "8.5" ]
+                shopware: [ "6.7.*" ]
+
+        steps:
+            -   name: Checkout code
+                uses: actions/checkout@v4
+
+            -   name: Setup PHP
+                uses: shivammathur/setup-php@v2
+                with:
+                    php-version: ${{ matrix.php-version }}
+                    extensions: mbstring, xml, ctype, json, pdo, pdo_mysql
+                    coverage: none
+                    tools: composer:v2
+                    ini-values: zend.assertions=1, assert.exception=1
+
+            -   name: Get Composer cache directory
+                id: composer-cache
+                run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+            -   name: Cache Composer dependencies
+                uses: actions/cache@v4
+                with:
+                    path: ${{ steps.composer-cache.outputs.dir }}
+                    key: ${{ runner.os }}-php-${{ matrix.php-version }}-shopware-${{ matrix.shopware }}-composer-${{ hashFiles('**/composer.lock') }}
+                    restore-keys: |
+                        ${{ runner.os }}-php-${{ matrix.php-version }}-shopware-${{ matrix.shopware }}-composer-
+                        ${{ runner.os }}-php-${{ matrix.php-version }}-composer-
+
+            -   name: Install dependencies
+                run: |
+                    composer require shopware/core:${{ matrix.shopware }} --no-interaction --prefer-dist --no-progress --prefer-stable
+
+            -   name: Run PHPStan
+                run: composer phpstan
+
+            -   name: Run Rector (check)
+                run: composer rector-check
+
+            -   name: Run PHP CS Fixer (check)
+                run: composer cs-check
+
+            -   name: Run PHPUnit tests
+                run: composer phpunit
