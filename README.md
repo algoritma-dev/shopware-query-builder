@@ -2,7 +2,7 @@
 
 A modern and intuitive library for building Shopware 6.7 queries with fluent syntax, alias support, and zero configuration.
 
-## 🚀 Quick Start
+## Quick Start
 
 ```php
 use Shopware\Core\Content\Product\ProductEntity;
