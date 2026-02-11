@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Algoritma\ShopwareQueryBuilder\Tests\Integration;
 
 use Algoritma\ShopwareQueryBuilder\QueryBuilder\QueryBuilder;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use Shopware\Core\Content\Product\ProductEntity;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
@@ -14,6 +15,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
  *
  * Tests relationships like products with manufacturers and categories.
  */
+#[CoversNothing]
 class RealDatabaseAssociationTest extends KernelAwareTestCase
 {
     /**
@@ -26,7 +28,7 @@ class RealDatabaseAssociationTest extends KernelAwareTestCase
 
         /** @var EntitySearchResult $result */
         $result = $queryBuilder
-            ->where('active', true)
+            ->where('active = true')
             ->with('manufacturer')
             ->get();
 
@@ -49,7 +51,7 @@ class RealDatabaseAssociationTest extends KernelAwareTestCase
 
         /** @var EntitySearchResult $result */
         $result = $queryBuilder
-            ->where('active', true)
+            ->where('active = true')
             ->with('categories')
             ->get();
 
@@ -73,7 +75,7 @@ class RealDatabaseAssociationTest extends KernelAwareTestCase
 
         /** @var EntitySearchResult $result */
         $result = $queryBuilder
-            ->where('active', true)
+            ->where('active = true')
             ->with('manufacturer')
             ->with('categories')
             ->get();
@@ -92,31 +94,25 @@ class RealDatabaseAssociationTest extends KernelAwareTestCase
      */
     public function testFilterByManufacturer(): void
     {
+        $criteria = new Criteria();
+        $criteria->addAssociation('manufacturer');
         // First, get products to find a valid manufacturer
         $allProducts = $this->getRepository(ProductEntity::class)
             ->search(
-                new Criteria(),
+                $criteria,
                 $this->context
             );
-
-        if ($allProducts->count() === 0) {
-            $this->markTestSkipped('No products available for manufacturer filter test');
-        }
 
         /** @var ProductEntity $product */
         $product = $allProducts->first();
         $manufacturerId = $product->getManufacturer()?->getId();
-
-        if (! $manufacturerId) {
-            $this->markTestSkipped('No manufacturer found for test product');
-        }
 
         /** @var QueryBuilder $queryBuilder */
         $queryBuilder = \sw_query(ProductEntity::class);
 
         /** @var EntitySearchResult $result */
         $result = $queryBuilder
-            ->where('manufacturerId', $manufacturerId)
+            ->where("manufacturerId = {$manufacturerId}")
             ->with('manufacturer')
             ->get();
 

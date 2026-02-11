@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Algoritma\ShopwareQueryBuilder\Tests\Integration;
 
+use Algoritma\ShopwareQueryBuilder\Filter\Expressions\RawExpressionParser;
 use Algoritma\ShopwareQueryBuilder\Filter\FilterFactory;
 use Algoritma\ShopwareQueryBuilder\Mapping\AssociationResolver;
 use Algoritma\ShopwareQueryBuilder\Mapping\EntityDefinitionResolver;
 use Algoritma\ShopwareQueryBuilder\Mapping\PropertyResolver;
 use Algoritma\ShopwareQueryBuilder\QueryBuilder\QueryBuilder;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Content\Product\ProductDefinition;
@@ -18,6 +20,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 /**
  * Integration tests that verify the entire query building pipeline.
  */
+#[CoversNothing]
 class QueryBuilderIntegrationTest extends TestCase
 {
     /**
@@ -55,10 +58,11 @@ class QueryBuilderIntegrationTest extends TestCase
             $this->definitionResolver,
             $this->propertyResolver,
             $this->associationResolver,
-            $this->filterFactory
+            $this->filterFactory,
+            new RawExpressionParser()
         );
 
-        $queryBuilder->where('active', true);
+        $queryBuilder->where('active = true');
 
         $criteria = $queryBuilder->toCriteria();
 
@@ -89,12 +93,13 @@ class QueryBuilderIntegrationTest extends TestCase
             $this->definitionResolver,
             $this->propertyResolver,
             $this->associationResolver,
-            $this->filterFactory
+            $this->filterFactory,
+            new RawExpressionParser()
         );
 
         $queryBuilder
-            ->where('active', true)
-            ->where('stock', '>', 0)
+            ->where('active = true')
+            ->where('stock > 0')
             ->with('manufacturer')
             ->orderBy('name', 'ASC')
             ->limit(10)
@@ -121,15 +126,16 @@ class QueryBuilderIntegrationTest extends TestCase
             $this->definitionResolver,
             $this->propertyResolver,
             $this->associationResolver,
-            $this->filterFactory
+            $this->filterFactory,
+            new RawExpressionParser()
         );
 
         $queryBuilder
-            ->where('active', true)
-            ->where('stock', '>', 0)
-            ->where('price', '>=', 10)
-            ->where('price', '<=', 100)
-            ->where('name', 'like', 'Test');
+            ->where('active = true')
+            ->where('stock > 0')
+            ->where('price >= 10')
+            ->where('price <= 100')
+            ->where('name LIKE "Test"');
 
         $criteria = $queryBuilder->toCriteria();
 
@@ -148,11 +154,12 @@ class QueryBuilderIntegrationTest extends TestCase
             $this->definitionResolver,
             $this->propertyResolver,
             $this->associationResolver,
-            $this->filterFactory
+            $this->filterFactory,
+            new RawExpressionParser()
         );
 
         $queryBuilder
-            ->where('active', true)
+            ->where('active = true')
             ->whereBetween('price', 10, 100)
             ->whereIn('id', ['id1', 'id2'])
             ->whereNotNull('parentId')
@@ -175,11 +182,12 @@ class QueryBuilderIntegrationTest extends TestCase
             $this->definitionResolver,
             $this->propertyResolver,
             $this->associationResolver,
-            $this->filterFactory
+            $this->filterFactory,
+            new RawExpressionParser()
         );
 
         $queryBuilder
-            ->where('active', true)
+            ->where('active = true')
             ->paginate(2, 20);
 
         $this->assertSame(2, $queryBuilder->getPage());
@@ -223,7 +231,8 @@ class QueryBuilderIntegrationTest extends TestCase
             $this->definitionResolver,
             $this->propertyResolver,
             $this->associationResolver,
-            $this->filterFactory
+            $this->filterFactory,
+            new RawExpressionParser()
         );
 
         $queryBuilder
@@ -259,13 +268,14 @@ class QueryBuilderIntegrationTest extends TestCase
             $this->definitionResolver,
             $this->propertyResolver,
             $this->associationResolver,
-            $this->filterFactory
+            $this->filterFactory,
+            new RawExpressionParser()
         );
 
         /** @var EntitySearchResult $result */
         $result = $queryBuilder
-            ->where('active', true)
-            ->where('stock', '>', 0)
+            ->where('active = true')
+            ->where('stock > 0')
             ->with('manufacturer')
             ->orderBy('name', 'ASC')
             ->limit(10);

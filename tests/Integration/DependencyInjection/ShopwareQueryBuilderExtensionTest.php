@@ -6,6 +6,7 @@ namespace Algoritma\ShopwareQueryBuilder\Tests\Integration\DependencyInjection;
 
 use Algoritma\ShopwareQueryBuilder\DependencyInjection\ShopwareQueryBuilderExtension;
 use Algoritma\ShopwareQueryBuilder\Mapping\EntityDefinitionResolver;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Framework\DataAbstractionLayer\DefinitionInstanceRegistry;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -13,6 +14,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 /**
  * Integration tests for ShopwareQueryBuilderExtension configuration.
  */
+#[CoversNothing]
 class ShopwareQueryBuilderExtensionTest extends TestCase
 {
     private ContainerBuilder $container;

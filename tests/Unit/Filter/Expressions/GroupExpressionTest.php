@@ -6,8 +6,12 @@ namespace Algoritma\ShopwareQueryBuilder\Tests\Unit\Filter\Expressions;
 
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\GroupExpression;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\WhereExpression;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(GroupExpression::class)]
+#[UsesClass(WhereExpression::class)]
 class GroupExpressionTest extends TestCase
 {
     public function testGetExpressions(): void

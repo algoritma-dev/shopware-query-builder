@@ -7,10 +7,12 @@ namespace Algoritma\ShopwareQueryBuilder\Tests\Unit\Mapping;
 use Algoritma\ShopwareQueryBuilder\Exception\InvalidPropertyException;
 use Algoritma\ShopwareQueryBuilder\Mapping\EntityDefinitionResolver;
 use Algoritma\ShopwareQueryBuilder\Mapping\PropertyResolver;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Content\Product\ProductEntity;
 
+#[CoversClass(PropertyResolver::class)]
 class PropertyResolverTest extends TestCase
 {
     private PropertyResolver $resolver;

@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Algoritma\ShopwareQueryBuilder\Tests\Unit\Filter\Expressions;
 
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\WhereExpression;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(WhereExpression::class)]
 class WhereExpressionTest extends TestCase
 {
     public function testConstructorAndGetters(): void

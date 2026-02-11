@@ -6,6 +6,9 @@ namespace Algoritma\ShopwareQueryBuilder\Tests\Unit\Filter;
 
 use Algoritma\ShopwareQueryBuilder\Exception\InvalidOperatorException;
 use Algoritma\ShopwareQueryBuilder\Filter\FilterFactory;
+use Algoritma\ShopwareQueryBuilder\Filter\OperatorMapper;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\ContainsFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsAnyFilter;
@@ -15,6 +18,8 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\PrefixFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\RangeFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\SuffixFilter;
 
+#[CoversClass(FilterFactory::class)]
+#[UsesClass(OperatorMapper::class)]
 class FilterFactoryTest extends TestCase
 {
     private FilterFactory $factory;

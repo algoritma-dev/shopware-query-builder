@@ -17,6 +17,6 @@ class InStockScope implements ScopeInterface
 
     public function apply(QueryBuilder $queryBuilder): void
     {
-        $queryBuilder->where('stock', '>=', $this->minStock);
+        $queryBuilder->where("stock >= {$this->minStock}");
     }
 }

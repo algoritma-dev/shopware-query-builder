@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Algoritma\ShopwareQueryBuilder\QueryBuilder;
 
+use Algoritma\ShopwareQueryBuilder\Exception\InvalidParameterException;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\GroupExpression;
+use Algoritma\ShopwareQueryBuilder\Filter\Expressions\RawExpressionParser;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\WhereExpression;
 use Algoritma\ShopwareQueryBuilder\Filter\FilterFactory;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
@@ -18,7 +20,8 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Sorting\FieldSorting;
 class CriteriaBuilder
 {
     public function __construct(
-        private readonly FilterFactory $filterFactory
+        private readonly FilterFactory $filterFactory,
+        private readonly RawExpressionParser $parser = new RawExpressionParser()
     ) {}
 
     /**
@@ -60,8 +63,10 @@ class CriteriaBuilder
             return;
         }
 
+        $parameters = $queryBuilder->getParameters();
+
         $filters = array_map(
-            $this->convertToFilter(...),
+            fn (WhereExpression|GroupExpression $expr): Filter => $this->convertToFilter($expr, $parameters),
             $expressions
         );
 
@@ -76,20 +81,24 @@ class CriteriaBuilder
 
     /**
      * Convert expression to filter (handles both WhereExpression and GroupExpression).
+     *
+     * @throws InvalidParameterException
      */
-    private function convertToFilter(WhereExpression|GroupExpression $expression): Filter
+    private function convertToFilter(WhereExpression|GroupExpression $expression, ?ParameterBag $parameters = null): Filter
     {
         if ($expression instanceof WhereExpression) {
+            $value = $this->resolveValue($expression->getValue(), $parameters);
+
             return $this->filterFactory->create(
                 $expression->getField(),
                 $expression->getOperator(),
-                $expression->getValue()
+                $value
             );
         }
 
         // GroupExpression - create nested MultiFilter
         $nestedFilters = array_map(
-            $this->convertToFilter(...),
+            fn (WhereExpression|GroupExpression $expr): Filter => $this->convertToFilter($expr, $parameters),
             $expression->getExpressions()
         );
 
@@ -106,14 +115,11 @@ class CriteriaBuilder
     private function addOrWhereFilters(Criteria $criteria, QueryBuilder $queryBuilder): void
     {
         $orGroups = $queryBuilder->getOrWhereGroups();
+        $parameters = $queryBuilder->getParameters();
 
         foreach ($orGroups as $group) {
             $filters = array_map(
-                fn (WhereExpression $expr): Filter => $this->filterFactory->create(
-                    $expr->getField(),
-                    $expr->getOperator(),
-                    $expr->getValue()
-                ),
+                fn (WhereExpression|GroupExpression $expr): Filter => $this->convertExpressionToFilter($expr, $parameters),
                 $group
             );
 
@@ -126,6 +132,80 @@ class CriteriaBuilder
                 );
             }
         }
+    }
+
+    /**
+     * Convert WhereExpression or GroupExpression to Filter.
+     *
+     * @throws InvalidParameterException
+     */
+    private function convertExpressionToFilter(WhereExpression|GroupExpression $expr, ?ParameterBag $parameters = null): Filter
+    {
+        if ($expr instanceof GroupExpression) {
+            return $this->convertGroupToFilter($expr, $parameters);
+        }
+
+        $value = $this->resolveValue($expr->getValue(), $parameters);
+
+        return $this->filterFactory->create(
+            $expr->getField(),
+            $expr->getOperator(),
+            $value
+        );
+    }
+
+    /**
+     * Convert GroupExpression to MultiFilter.
+     *
+     * @throws InvalidParameterException
+     */
+    private function convertGroupToFilter(GroupExpression $group, ?ParameterBag $parameters = null): MultiFilter
+    {
+        $expressions = $group->getExpressions();
+        $operator = $group->getOperator();
+
+        // Recursively convert nested expressions to filters
+        $filters = array_map(
+            fn (WhereExpression|GroupExpression $expr): Filter => $this->convertExpressionToFilter($expr, $parameters),
+            $expressions
+        );
+
+        // Determine connection type based on operator
+        $connection = $operator === 'OR'
+            ? MultiFilter::CONNECTION_OR
+            : MultiFilter::CONNECTION_AND;
+
+        return new MultiFilter($connection, $filters);
+    }
+
+    /**
+     * Resolve parameter placeholders to actual values.
+     *
+     * @throws InvalidParameterException
+     */
+    private function resolveValue(mixed $value, ?ParameterBag $parameters = null): mixed
+    {
+        // Handle null or non-parameter values
+        if ($value === null || ! $parameters instanceof ParameterBag) {
+            return $value;
+        }
+
+        // Handle string parameter placeholder (e.g., ":status")
+        if (is_string($value) && $this->parser->isParameter($value)) {
+            $paramName = $this->parser->extractParameterName($value);
+
+            return $parameters->get($paramName);
+        }
+
+        // Handle array values (for IN operator) - check for parameter placeholders
+        if (is_array($value)) {
+            return array_map(
+                fn (mixed $item): mixed => $this->resolveValue($item, $parameters),
+                $value
+            );
+        }
+
+        return $value;
     }
 
     /**

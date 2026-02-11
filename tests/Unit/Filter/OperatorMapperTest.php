@@ -6,9 +6,11 @@ namespace Algoritma\ShopwareQueryBuilder\Tests\Unit\Filter;
 
 use Algoritma\ShopwareQueryBuilder\Exception\InvalidOperatorException;
 use Algoritma\ShopwareQueryBuilder\Filter\OperatorMapper;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(OperatorMapper::class)]
 class OperatorMapperTest extends TestCase
 {
     private OperatorMapper $mapper;

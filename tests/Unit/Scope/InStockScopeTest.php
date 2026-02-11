@@ -4,16 +4,25 @@ declare(strict_types=1);
 
 namespace Algoritma\ShopwareQueryBuilder\Tests\Unit\Scope;
 
+use Algoritma\ShopwareQueryBuilder\Filter\Expressions\RawExpressionParser;
+use Algoritma\ShopwareQueryBuilder\Filter\Expressions\WhereExpression;
 use Algoritma\ShopwareQueryBuilder\Filter\FilterFactory;
 use Algoritma\ShopwareQueryBuilder\Mapping\AssociationResolver;
 use Algoritma\ShopwareQueryBuilder\Mapping\EntityDefinitionResolver;
 use Algoritma\ShopwareQueryBuilder\Mapping\PropertyResolver;
 use Algoritma\ShopwareQueryBuilder\QueryBuilder\QueryBuilder;
 use Algoritma\ShopwareQueryBuilder\Scope\InStockScope;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Content\Product\ProductDefinition;
 use Shopware\Core\Content\Product\ProductEntity;
 
+#[CoversClass(InStockScope::class)]
+#[UsesClass(FilterFactory::class)]
+#[UsesClass(RawExpressionParser::class)]
+#[UsesClass(QueryBuilder::class)]
+#[UsesClass(WhereExpression::class)]
 class InStockScopeTest extends TestCase
 {
     public function testApplyAddsStockConditionWithDefaultMinimum(): void
@@ -36,7 +45,8 @@ class InStockScopeTest extends TestCase
             $definitionResolver,
             $propertyResolver,
             $associationResolver,
-            $filterFactory
+            $filterFactory,
+            new RawExpressionParser()
         );
 
         $scope = new InStockScope();
@@ -70,7 +80,8 @@ class InStockScopeTest extends TestCase
             $definitionResolver,
             $propertyResolver,
             $associationResolver,
-            $filterFactory
+            $filterFactory,
+            new RawExpressionParser()
         );
 
         $scope = new InStockScope(10);
