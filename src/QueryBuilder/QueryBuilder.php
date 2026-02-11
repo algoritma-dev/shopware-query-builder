@@ -222,8 +222,16 @@ class QueryBuilder
             return $this->autoCreateGroup($parsed);
         }
 
-        // Simple expression
-        $whereExpr = WhereExpression::fromRaw($expression, $this->parser);
+        // Simple expression - resolve field with alias before creating expression
+        $condition = $parsed['conditions'][0];
+        $resolvedField = $this->resolvePropertyWithAlias($condition['field']);
+
+        $whereExpr = new WhereExpression(
+            $resolvedField,
+            $condition['operator'],
+            $condition['value'],
+            $condition['raw']
+        );
         $this->whereExpressions[] = $whereExpr;
 
         return $this;
@@ -310,7 +318,19 @@ class QueryBuilder
      */
     public function with(string $association, string|callable|null $aliasOrCallback = null, ?callable $callback = null): self
     {
-        $associationInfo = $this->associationResolver->resolve($this->entityClass, $association);
+        // Check if the association starts with an alias (e.g., 'addressAlias.country')
+        $resolvedAssociation = $association;
+        if (str_contains($association, '.')) {
+            $parts = explode('.', $association, 2);
+            $potentialAlias = $parts[0];
+
+            // If the first part is a known alias, resolve it
+            if (isset($this->aliasMap[$potentialAlias])) {
+                $resolvedAssociation = $this->aliasMap[$potentialAlias] . '.' . $parts[1];
+            }
+        }
+
+        $associationInfo = $this->associationResolver->resolve($this->entityClass, $resolvedAssociation);
 
         // Determine if we have an alias or callback
         $associationAlias = null;

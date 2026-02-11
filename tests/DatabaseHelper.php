@@ -7,7 +7,9 @@ namespace Algoritma\ShopwareQueryBuilder\Tests;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\Uuid\Uuid;
+use Shopware\Core\Test\TestDefaults;
 
 /**
  * Helper class for managing test database and fixtures.
@@ -18,6 +20,9 @@ class DatabaseHelper
         private readonly EntityRepository $productRepository,
         private readonly EntityRepository $categoryRepository,
         private readonly EntityRepository $manufacturerRepository,
+        private readonly EntityRepository $customerRepository,
+        private readonly EntityRepository $countryRepository,
+        private readonly EntityRepository $paymentMethodRepository,
     ) {}
 
     /**
@@ -123,45 +128,135 @@ class DatabaseHelper
             ],
         ];
         $this->productRepository->create($products, $context);
+
+        // Create or fetch countries
+        $countryIds = [
+            'country-de' => Uuid::randomHex(),
+            'country-us' => Uuid::randomHex(),
+        ];
+        $countries = [
+            [
+                'id' => $countryIds['country-de'],
+                'name' => 'Germany',
+                'iso' => 'DE',
+                'iso3' => 'DEU',
+                'position' => 1,
+                'taxFree' => false,
+                'active' => true,
+                'shippingAvailable' => true,
+            ],
+            [
+                'id' => $countryIds['country-us'],
+                'name' => 'United States',
+                'iso' => 'US',
+                'iso3' => 'USA',
+                'position' => 2,
+                'taxFree' => false,
+                'active' => true,
+                'shippingAvailable' => true,
+            ],
+        ];
+        $this->countryRepository->upsert($countries, $context);
+
+        // Create customers with addresses
+        $customerIds = [
+            'customer-1' => Uuid::randomHex(),
+            'customer-2' => Uuid::randomHex(),
+        ];
+        $addressIds = [
+            'address-1-billing' => Uuid::randomHex(),
+            'address-1-shipping' => Uuid::randomHex(),
+            'address-2-billing' => Uuid::randomHex(),
+            'address-2-shipping' => Uuid::randomHex(),
+        ];
+        $customers = [
+            [
+                'id' => $customerIds['customer-1'],
+                'salesChannelId' => TestDefaults::SALES_CHANNEL,
+                'groupId' => TestDefaults::FALLBACK_CUSTOMER_GROUP,
+                'defaultPaymentMethodId' => '11491d8f829143c9a1f15c9c55e3df0c',
+                'defaultBillingAddressId' => $addressIds['address-1-billing'],
+                'defaultShippingAddressId' => $addressIds['address-1-shipping'],
+                'customerNumber' => 'CUST-001',
+                'firstName' => 'John',
+                'lastName' => 'Doe',
+                'email' => 'john.doe@example.com',
+                'active' => true,
+                'guest' => false,
+                'addresses' => [
+                    [
+                        'id' => $addressIds['address-1-billing'],
+                        'countryId' => $countryIds['country-de'],
+                        'street' => 'Musterstraße 1',
+                        'zipcode' => '12345',
+                        'city' => 'Berlin',
+                        'firstName' => 'John',
+                        'lastName' => 'Doe',
+                    ],
+                    [
+                        'id' => $addressIds['address-1-shipping'],
+                        'countryId' => $countryIds['country-us'],
+                        'street' => '123 Main Street',
+                        'zipcode' => '10001',
+                        'city' => 'New York',
+                        'firstName' => 'John',
+                        'lastName' => 'Doe',
+                    ],
+                ],
+            ],
+            [
+                'id' => $customerIds['customer-2'],
+                'salesChannelId' => TestDefaults::SALES_CHANNEL,
+                'groupId' => TestDefaults::FALLBACK_CUSTOMER_GROUP,
+                'defaultPaymentMethodId' => $this->getDefaultPaymentMethodId($context),
+                'defaultBillingAddressId' => $addressIds['address-2-billing'],
+                'defaultShippingAddressId' => $addressIds['address-2-shipping'],
+                'customerNumber' => 'CUST-002',
+                'firstName' => 'Jane',
+                'lastName' => 'Smith',
+                'email' => 'jane.smith@example.com',
+                'active' => true,
+                'guest' => false,
+                'addresses' => [
+                    [
+                        'id' => $addressIds['address-2-billing'],
+                        'countryId' => $countryIds['country-de'],
+                        'street' => 'Testweg 99',
+                        'zipcode' => '54321',
+                        'city' => 'Munich',
+                        'firstName' => 'Jane',
+                        'lastName' => 'Smith',
+                    ],
+                    [
+                        'id' => $addressIds['address-2-shipping'],
+                        'countryId' => $countryIds['country-de'],
+                        'street' => 'Versandstraße 42',
+                        'zipcode' => '80331',
+                        'city' => 'Munich',
+                        'firstName' => 'Jane',
+                        'lastName' => 'Smith',
+                    ],
+                ],
+            ],
+        ];
+        $this->customerRepository->create($customers, $context);
     }
 
     /**
-     * Clear all test data from the database.
+     * Get the default payment method ID.
      */
-    public function clearFixtures(Context $context): void
+    private function getDefaultPaymentMethodId(Context $context): string
     {
-        // Delete products
-        try {
-            $products = $this->productRepository->searchIds(null, $context);
-            if (! $products->getIds()) {
-                return;
-            }
-            $deleteData = array_map(fn ($id): array => ['id' => $id], $products->getIds());
-            $this->productRepository->delete($deleteData, $context);
-        } catch (\Throwable) {
-            // Silently ignore errors during cleanup
+        // Get first available payment method from database
+        $criteria = new Criteria();
+        $criteria->setLimit(1);
+        $result = $this->paymentMethodRepository->searchIds($criteria, $context);
+
+        if ($result->getTotal() > 0) {
+            return $result->firstId();
         }
-        // Delete categories
-        try {
-            $categories = $this->categoryRepository->searchIds(null, $context);
-            if (! $categories->getIds()) {
-                return;
-            }
-            $deleteData = array_map(fn ($id): array => ['id' => $id], $categories->getIds());
-            $this->categoryRepository->delete($deleteData, $context);
-        } catch (\Throwable) {
-            // Silently ignore errors during cleanup
-        }
-        // Delete manufacturers
-        try {
-            $manufacturers = $this->manufacturerRepository->searchIds(null, $context);
-            if (! $manufacturers->getIds()) {
-                return;
-            }
-            $deleteData = array_map(fn ($id): array => ['id' => $id], $manufacturers->getIds());
-            $this->manufacturerRepository->delete($deleteData, $context);
-        } catch (\Throwable) {
-            // Silently ignore errors during cleanup
-        }
+
+        // Fallback: use a known payment method UUID
+        return '11491d8f829143c9a1f15c9c55e3df0c';
     }
 }
