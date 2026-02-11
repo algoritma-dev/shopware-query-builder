@@ -56,4 +56,4 @@ jobs:
                 run: ./vendor/bin/php-cs-fixer fix --dry-run --diff
 
             -   name: Run PHPUnit tests
-                run: composer phpunit --testsuite unit --bootstrap vendor/autoload.php
+                run: ./vendor/bin/phpunit --testsuite unit --bootstrap vendor/autoload.php
