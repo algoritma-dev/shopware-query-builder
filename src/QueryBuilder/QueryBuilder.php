@@ -97,6 +97,8 @@ class QueryBuilder
 
     private readonly ParameterBag $parameters;
 
+    private ?string $title = null;
+
     public function __construct(
         private readonly string $entityClass,
         private readonly EntityDefinitionResolver $definitionResolver,
@@ -999,6 +1001,16 @@ class QueryBuilder
         }
 
         return $entities;
+    }
+
+    public function title(string $title): void
+    {
+        $this->title = $title;
+    }
+
+    public function getTitle(): ?string
+    {
+        return $this->title;
     }
 
     /**

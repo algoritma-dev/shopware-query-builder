@@ -31,6 +31,8 @@ class CriteriaBuilder
     {
         $criteria = new Criteria();
 
+        $this->addTitle($criteria, $queryBuilder);
+
         // Add WHERE filters
         $this->addWhereFilters($criteria, $queryBuilder);
 
@@ -286,6 +288,13 @@ class CriteriaBuilder
 
         if ($queryBuilder->getOffset() !== null) {
             $criteria->setOffset($queryBuilder->getOffset());
+        }
+    }
+
+    private function addTitle(Criteria $criteria, QueryBuilder $queryBuilder): void
+    {
+        if ($queryBuilder->getTitle()) {
+            $criteria->setTitle($queryBuilder->getTitle());
         }
     }
 }

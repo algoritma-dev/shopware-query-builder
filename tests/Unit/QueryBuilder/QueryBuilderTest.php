@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Algoritma\ShopwareQueryBuilder\Tests\Unit\QueryBuilder;
 
 use Algoritma\ShopwareQueryBuilder\Exception\EntityNotFoundException;
+use Algoritma\ShopwareQueryBuilder\Exception\UpdateEntityException;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\GroupExpression;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\RawExpressionParser;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\WhereExpression;
@@ -1193,6 +1194,9 @@ class QueryBuilderTest extends TestCase
         self::assertSame('Updated Name', $result->getName());
     }
 
+    /**
+     * @throws UpdateEntityException
+     */
     public function testInsertCanUpdateMultipleEntity(): void
     {
         $data = [
@@ -1246,5 +1250,23 @@ class QueryBuilderTest extends TestCase
         self::assertInstanceOf(EntityCollection::class, $result);
         self::assertEquals($expectedEntity1, $result->first());
         self::assertEquals($expectedEntity2, $result->last());
+    }
+
+    public function testQueryBuilderTitle(): void
+    {
+        $this->queryBuilder->title('title');
+
+        $title = $this->queryBuilder->getTitle();
+
+        self::assertEquals('title', $title);
+    }
+
+    public function testQueryBuilderAnotherTitle(): void
+    {
+        $this->queryBuilder->title('title 2');
+
+        $title = $this->queryBuilder->getTitle();
+
+        self::assertEquals('title 2', $title);
     }
 }

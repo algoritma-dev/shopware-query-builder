@@ -253,4 +253,20 @@ class CriteriaBuilderTest extends TestCase
         $this->assertInstanceOf(Criteria::class, $criteria);
         $this->assertCount(1, $criteria->getFilters());
     }
+
+    public function testTitleOnQueryBuilderCanBeNullable(): void
+    {
+        $criteria = $this->criteriaBuilder->build($this->queryBuilder);
+
+        $this->assertEquals(null, $criteria->getTitle());
+    }
+
+    public function testTitleOnQueryBuilderShouldMapOnCriteria(): void
+    {
+        $this->queryBuilder->title('title');
+
+        $criteria = $this->criteriaBuilder->build($this->queryBuilder);
+
+        $this->assertEquals('title', $criteria->getTitle());
+    }
 }
