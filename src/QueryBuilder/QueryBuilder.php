@@ -222,9 +222,9 @@ class QueryBuilder
             return $this->autoCreateGroup($parsed);
         }
 
-        // Simple expression - resolve field with alias before creating expression
+        // Simple expression - resolve field with alias (but don't validate yet, that happens later)
         $condition = $parsed['conditions'][0];
-        $resolvedField = $this->resolvePropertyWithAlias($condition['field']);
+        $resolvedField = $this->resolveFieldAlias($condition['field']);
 
         $whereExpr = new WhereExpression(
             $resolvedField,
@@ -289,7 +289,7 @@ class QueryBuilder
             // Create GroupExpression for compound expression and add to OR groups
             $expressions = [];
             foreach ($parsed['conditions'] as $condition) {
-                $resolvedField = $this->resolvePropertyWithAlias($condition['field']);
+                $resolvedField = $this->resolveFieldAlias($condition['field']);
                 $expressions[] = new WhereExpression(
                     $resolvedField,
                     $condition['operator'],
@@ -302,7 +302,14 @@ class QueryBuilder
             ];
         } else {
             // Simple expression - add as single OR condition
-            $whereExpr = WhereExpression::fromRaw($expression, $this->parser);
+            $condition = $parsed['conditions'][0];
+            $resolvedField = $this->resolveFieldAlias($condition['field']);
+            $whereExpr = new WhereExpression(
+                $resolvedField,
+                $condition['operator'],
+                $condition['value'],
+                $condition['raw']
+            );
             $this->orWhereGroups[] = [$whereExpr];
         }
 
@@ -1146,8 +1153,8 @@ class QueryBuilder
         $expressions = [];
 
         foreach ($parsed['conditions'] as $condition) {
-            // Resolve property with alias
-            $resolvedField = $this->resolvePropertyWithAlias($condition['field']);
+            // Resolve field alias (without validation)
+            $resolvedField = $this->resolveFieldAlias($condition['field']);
 
             $expressions[] = new WhereExpression(
                 $resolvedField,
@@ -1166,15 +1173,13 @@ class QueryBuilder
     }
 
     /**
-     * Resolve property name, handling aliases.
-     *
-     * @throws InvalidAliasException
+     * Resolve field alias only (no validation) - used when building expressions.
      */
-    private function resolvePropertyWithAlias(string $property): string
+    private function resolveFieldAlias(string $field): string
     {
-        // Check if property starts with alias (e.g., 'p.active' or 'm.name')
-        if (str_contains($property, '.')) {
-            $parts = explode('.', $property, 2);
+        // Check if field starts with alias (e.g., 'countryAlias.iso')
+        if (str_contains($field, '.')) {
+            $parts = explode('.', $field, 2);
             $potentialAlias = $parts[0];
             $propertyPath = $parts[1];
 
@@ -1183,23 +1188,49 @@ class QueryBuilder
                 // Resolve the alias to association path
                 $associationPath = $this->aliasMap[$potentialAlias];
 
-                // For nested properties after alias, we don't need PropertyResolver validation
-                // because it will be validated by Shopware at runtime
                 return $associationPath . '.' . $propertyPath;
             }
 
             // Check if it matches the main entity alias
             if ($this->alias !== null && $potentialAlias === $this->alias) {
-                // It's a reference to main entity with alias, validate the property
-                return $this->propertyResolver->resolve($this->entityClass, $propertyPath);
+                // It's a reference to main entity with alias
+                return $propertyPath;
+            }
+        }
+
+        // Return as-is - validation happens later in PropertyResolver if needed
+        return $field;
+    }
+
+    /**
+     * Resolve property name, handling aliases.
+     *
+     * @throws InvalidAliasException
+     */
+    private function resolvePropertyWithAlias(string $property): string
+    {
+        // First resolve any aliases
+        $resolved = $this->resolveFieldAlias($property);
+
+        // Then validate the property
+        // Check if property starts with alias (e.g., 'p.active' or 'm.name')
+        if (str_contains($resolved, '.')) {
+            $parts = explode('.', $resolved, 2);
+            $potentialAlias = $parts[0];
+            $propertyPath = $parts[1];
+
+            // Check if this is a registered alias
+            if (isset($this->aliasMap[$potentialAlias])) {
+                // Already resolved, return as-is
+                return $resolved;
             }
 
             // Not an alias, treat as nested property (e.g., 'manufacturer.name')
-            return $this->propertyResolver->resolve($this->entityClass, $property);
+            return $this->propertyResolver->resolve($this->entityClass, $resolved);
         }
 
         // Simple property without dots, validate normally
-        return $this->propertyResolver->resolve($this->entityClass, $property);
+        return $this->propertyResolver->resolve($this->entityClass, $resolved);
     }
 
     /**

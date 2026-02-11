@@ -135,7 +135,7 @@ class RealDatabaseNestedAssociationTest extends KernelAwareTestCase
         /** @var EntitySearchResult $result */
         $result = $queryBuilder
             ->where('active = true')
-            ->with('defaultShippingAddress', 'addressAlias', function (QueryBuilder $q) {
+            ->with('defaultShippingAddress', 'addressAlias', function (QueryBuilder $q): void {
                 $q->with('country', 'countryAlias');
             })
             ->get();
@@ -173,7 +173,7 @@ class RealDatabaseNestedAssociationTest extends KernelAwareTestCase
             if ($previousCountryName !== null) {
                 $this->assertGreaterThanOrEqual(
                     0,
-                    strcmp($countryName, $previousCountryName),
+                    strcmp((string) $countryName, $previousCountryName),
                     'Countries should be ordered alphabetically'
                 );
             }
@@ -195,7 +195,7 @@ class RealDatabaseNestedAssociationTest extends KernelAwareTestCase
             ->where('active = true')
             ->with('defaultShippingAddress.country', 'shippingCountry')
             ->with('defaultBillingAddress.country', 'billingCountry')
-            ->where(function (QueryBuilder $q) {
+            ->where(function (QueryBuilder $q): void {
                 $q->where('shippingCountry.iso = "US"')
                     ->orWhere('billingCountry.iso = "DE"');
             })
