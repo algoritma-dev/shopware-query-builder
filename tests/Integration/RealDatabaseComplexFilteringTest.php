@@ -47,10 +47,6 @@ class RealDatabaseComplexFilteringTest extends KernelAwareTestCase
         $queryBuilder = \sw_query(ProductEntity::class);
         $sample = $queryBuilder->limit(5)->get();
 
-        if ($sample->count() < 3) {
-            $this->markTestSkipped('Not enough products');
-        }
-
         $ids = array_slice($sample->getIds(), 0, 3);
 
         $queryBuilder2 = \sw_query(ProductEntity::class);
@@ -131,10 +127,6 @@ class RealDatabaseComplexFilteringTest extends KernelAwareTestCase
     {
         $queryBuilder = \sw_query(ProductEntity::class);
         $sample = $queryBuilder->limit(3)->get();
-
-        if ($sample->count() < 2) {
-            $this->markTestSkipped('Not enough products');
-        }
 
         $excludeIds = array_slice($sample->getIds(), 0, 2);
 
@@ -360,10 +352,6 @@ class RealDatabaseComplexFilteringTest extends KernelAwareTestCase
         $queryBuilder = \sw_query(ProductEntity::class);
         $sample = $queryBuilder->limit(2)->get();
 
-        if ($sample->count() < 2) {
-            $this->markTestSkipped('Not enough products');
-        }
-
         $ids = array_slice($sample->getIds(), 0, 2);
 
         /** @var QueryBuilder $queryBuilder2 */
@@ -492,10 +480,6 @@ class RealDatabaseComplexFilteringTest extends KernelAwareTestCase
     {
         $queryBuilder = \sw_query(ProductEntity::class);
         $sample = $queryBuilder->limit(3)->get();
-
-        if ($sample->count() < 2) {
-            $this->markTestSkipped('Not enough products');
-        }
 
         $ids = array_slice($sample->getIds(), 0, 2);
 

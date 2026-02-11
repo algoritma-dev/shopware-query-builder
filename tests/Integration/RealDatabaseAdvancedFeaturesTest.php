@@ -128,11 +128,7 @@ class RealDatabaseAdvancedFeaturesTest extends KernelAwareTestCase
         $queryBuilder = \sw_query(ProductEntity::class);
 
         $allResult = $queryBuilder->get();
-        $totalCount = $allResult->count();
-
-        if ($totalCount < 3) {
-            $this->markTestSkipped('Not enough products for pagination test');
-        }
+        $allResult->count();
 
         // Get second item (offset 1, limit 1)
         $queryBuilder2 = \sw_query(ProductEntity::class);

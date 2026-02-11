@@ -15,9 +15,15 @@ use Algoritma\ShopwareQueryBuilder\Exception\InvalidOperatorException;
  * - Compound OR: 'featured = true OR promoted = true'
  * - Operators: =, !=, <>, >, >=, <, <=, LIKE, IN, NOT IN, IS NULL, IS NOT NULL
  * - Value types: strings (quoted), numbers, booleans, null, arrays
+ * - Named parameters: :paramName (e.g., 'status = :status')
  */
 class RawExpressionParser
 {
+    /**
+     * Pattern to match parameter placeholders.
+     */
+    private const PARAMETER_PATTERN = '/^:([a-zA-Z_]\w*)$/';
+
     /**
      * Supported comparison operators.
      *
@@ -52,6 +58,27 @@ class RawExpressionParser
      * @var array<string>
      */
     private const LOGICAL_OPERATORS = ['AND', 'OR'];
+
+    /**
+     * Check if a value token is a parameter placeholder.
+     */
+    public function isParameter(string $token): bool
+    {
+        return preg_match(self::PARAMETER_PATTERN, trim($token)) === 1;
+    }
+
+    /**
+     * Extract parameter name from placeholder (removes ':' prefix).
+     */
+    public function extractParameterName(string $token): string
+    {
+        $token = trim($token);
+        if (preg_match(self::PARAMETER_PATTERN, $token, $matches)) {
+            return $matches[1];
+        }
+
+        throw new \InvalidArgumentException(sprintf("'%s' is not a valid parameter placeholder", $token));
+    }
 
     /**
      * Parse a raw WHERE expression.
@@ -187,6 +214,9 @@ class RawExpressionParser
 
     /**
      * Extract and convert value from string token.
+     *
+     * Returns the token as-is if it's a parameter placeholder (e.g., :status),
+     * allowing the CriteriaBuilder to replace it with the actual value later.
      */
     private function extractValue(?string $valueToken): mixed
     {
@@ -215,8 +245,14 @@ class RawExpressionParser
             return $matches[2]; // Return unquoted value
         }
 
-        // Handle arrays for IN operator - format: (1,2,3) or (a,b,c)
+        // Handle arrays for IN operator - format: (1,2,3) or (a,b,c) or (:param)
         if (preg_match('/^\((.*)\)$/', $valueToken, $matches)) {
+            // Check if it's a single parameter placeholder for array value
+            $innerContent = trim($matches[1]);
+            if ($this->isParameter($innerContent)) {
+                return $innerContent; // Return parameter placeholder for array
+            }
+
             $items = array_map(trim(...), explode(',', $matches[1]));
 
             return array_map($this->extractValue(...), $items);

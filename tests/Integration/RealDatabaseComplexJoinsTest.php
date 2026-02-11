@@ -57,10 +57,6 @@ class RealDatabaseComplexJoinsTest extends KernelAwareTestCase
             ->limit(1)
             ->get();
 
-        if ($sample->count() === 0) {
-            $this->markTestSkipped('No products with manufacturer found');
-        }
-
         $manufacturerName = $sample->first()->getManufacturer()->getName();
 
         // Now filter by that manufacturer name
@@ -140,10 +136,6 @@ class RealDatabaseComplexJoinsTest extends KernelAwareTestCase
             ->limit(3)
             ->get();
 
-        if ($sample->count() < 2) {
-            $this->markTestSkipped('Not enough products with manufacturers');
-        }
-
         $manufacturerIds = array_unique(
             array_map(fn (Entity $p) => $p->getManufacturerId(), $sample->getElements())
         );
@@ -181,10 +173,6 @@ class RealDatabaseComplexJoinsTest extends KernelAwareTestCase
                 $productWithCategories = $product;
                 break;
             }
-        }
-
-        if (! $productWithCategories instanceof Entity) {
-            $this->markTestSkipped('No products with categories found');
         }
 
         $categoryId = $productWithCategories->getCategories()->first()->getId();

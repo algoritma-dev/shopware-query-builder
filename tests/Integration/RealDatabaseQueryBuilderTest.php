@@ -111,9 +111,7 @@ class RealDatabaseQueryBuilderTest extends KernelAwareTestCase
         // Get product IDs from initial query
         $allProducts = $this->getRepository(ProductEntity::class)->search(new Criteria(), $this->context);
         $ids = $allProducts->getIds();
-        if (count($ids) < 2) {
-            $this->markTestSkipped('Not enough products in database for IN test');
-        }
+
         /** @var QueryBuilder $queryBuilder */
         $queryBuilder = \sw_query(ProductEntity::class);
         $selectedIds = array_slice($ids, 0, 2);

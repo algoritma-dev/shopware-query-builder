@@ -7,6 +7,7 @@ namespace Algoritma\ShopwareQueryBuilder\QueryBuilder;
 use Algoritma\ShopwareQueryBuilder\Exception\EntityNotFoundException;
 use Algoritma\ShopwareQueryBuilder\Exception\InsertEntityException;
 use Algoritma\ShopwareQueryBuilder\Exception\InvalidAliasException;
+use Algoritma\ShopwareQueryBuilder\Exception\InvalidParameterException;
 use Algoritma\ShopwareQueryBuilder\Exception\UpdateEntityException;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\GroupExpression;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\RawExpressionParser;
@@ -94,6 +95,8 @@ class QueryBuilder
 
     private Context $context;
 
+    private readonly ParameterBag $parameters;
+
     public function __construct(
         private readonly string $entityClass,
         private readonly EntityDefinitionResolver $definitionResolver,
@@ -107,6 +110,9 @@ class QueryBuilder
 
         // Default context for execution
         $this->context = Context::createCLIContext();
+
+        // Initialize parameter bag
+        $this->parameters = new ParameterBag();
     }
 
     /**
@@ -143,6 +149,45 @@ class QueryBuilder
         $this->context = $context;
 
         return $this;
+    }
+
+    /**
+     * Set a named parameter for use in queries.
+     *
+     * @param string $name Parameter name (with or without ':' prefix)
+     * @param mixed $value Parameter value
+     *
+     * @throws InvalidParameterException
+     */
+    public function setParameter(string $name, mixed $value): self
+    {
+        $this->parameters->set($name, $value);
+
+        return $this;
+    }
+
+    /**
+     * Set multiple parameters at once.
+     *
+     * @param array<string, mixed> $parameters Map of parameter names to values
+     *
+     * @throws InvalidParameterException
+     */
+    public function setParameters(array $parameters): self
+    {
+        $this->parameters->setAll($parameters);
+
+        return $this;
+    }
+
+    /**
+     * Get the parameter bag.
+     *
+     * @internal Used by CriteriaBuilder
+     */
+    public function getParameters(): ParameterBag
+    {
+        return $this->parameters;
     }
 
     /**

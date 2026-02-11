@@ -52,6 +52,7 @@ $pagination = sw_query(ProductEntity::class, 'p')
 - Automatic validation of properties and associations
 
 ### Advanced Features
+- **Parameter Binding**: `setParameter()`, `setParameters()` for secure queries
 - **Aggregations**: `addCount()`, `addSum()`, `addAvg()`, `addMin()`, `addMax()`
 - **Nested Groups**: `whereGroup()`, `orWhereGroup()` with infinite nesting
 - **Reusable Scopes**: `scope()`, `scopes()` for query logic reuse
@@ -99,6 +100,11 @@ sw_query(ProductEntity::class)
 ->where('field > 10')                         // Greater than
 ->where('stock > 10 AND active = true')       // Compound AND (auto-creates GroupExpression)
 ->where('featured = true OR promoted = true') // Compound OR (auto-creates GroupExpression)
+
+// Parameter binding (secure, reusable)
+->where('status = :status')                   // Named parameter
+->setParameter('status', 'active')            // Set single parameter
+->setParameters(['status' => 'active'])       // Set multiple parameters
 
 // Convenience methods (unchanged)
 ->whereBetween('field', 10, 100)    // Between values
@@ -346,7 +352,77 @@ $deletedProducts = sw_query(ProductEntity::class)
     ->getEntities();
 ```
 
-### Example 9: Query Debugging
+### Example 9: Parameter Binding
+
+```php
+// Simple parameter binding
+$products = sw_query(ProductEntity::class)
+    ->where('status = :status')
+    ->setParameter('status', 'active')
+    ->getEntities();
+
+// Multiple parameters
+$products = sw_query(ProductEntity::class)
+    ->where('active = :active')
+    ->where('stock > :minStock')
+    ->setParameters([
+        'active' => true,
+        'minStock' => 10
+    ])
+    ->getEntities();
+
+// Parameters with IN operator
+$products = sw_query(ProductEntity::class)
+    ->where('status IN (:statuses)')
+    ->setParameter('statuses', ['active', 'pending', 'processing'])
+    ->getEntities();
+
+// Range queries with parameters
+$products = sw_query(ProductEntity::class)
+    ->where('price >= :minPrice AND price <= :maxPrice')
+    ->setParameters([
+        'minPrice' => 100,
+        'maxPrice' => 500
+    ])
+    ->getEntities();
+
+// Parameters with LIKE
+$products = sw_query(ProductEntity::class)
+    ->where('name LIKE :searchTerm')
+    ->setParameter('searchTerm', '%laptop%')
+    ->getEntities();
+
+// Reusable query with different parameters
+$queryTemplate = sw_query(ProductEntity::class)
+    ->where('active = :active')
+    ->where('stock > :minStock');
+
+// Execute with different parameter sets
+$activeProducts = $queryTemplate
+    ->setParameters(['active' => true, 'minStock' => 10])
+    ->getEntities();
+
+// Complex example with multiple parameter types
+$products = sw_query(ProductEntity::class, 'p')
+    ->with('manufacturer', 'm')
+    ->where('p.active = :active')
+    ->where('p.stock >= :minStock AND p.stock <= :maxStock')
+    ->where('m.country IN (:countries)')
+    ->where('p.price >= :minPrice')
+    ->orWhere('p.featured = :featured')
+    ->setParameters([
+        'active' => true,
+        'minStock' => 10,
+        'maxStock' => 100,
+        'countries' => ['DE', 'AT', 'CH'],
+        'minPrice' => 50,
+        'featured' => true
+    ])
+    ->orderBy('p.name', 'ASC')
+    ->getEntities();
+```
+
+### Example 10: Query Debugging
 
 ```php
 // Enable debug mode
@@ -377,7 +453,7 @@ $debugInfo = sw_query(ProductEntity::class, 'p')
 // Returns: ['entity' => '...', 'where' => [...], 'limit' => 10, ...]
 ```
 
-### Example 10: Updates
+### Example 11: Updates
 
 ```php
 // Update with conditions and get updated entities
@@ -580,7 +656,21 @@ try {
 }
 ```
 
-### 5. Use exists() for checks
+### 5. Use parameter binding for dynamic values
+```php
+// Secure - Uses parameter binding
+$products = sw_query(ProductEntity::class)
+    ->where('status = :status')
+    ->setParameter('status', $userInput)
+    ->getEntities();
+
+// Also secure - QueryBuilder handles values safely
+$products = sw_query(ProductEntity::class)
+    ->where('status = "' . $userInput . '"')
+    ->getEntities();
+```
+
+### 6. Use exists() for checks
 ```php
 // More efficient
 if (sw_query(ProductEntity::class)->where('id = "' . $id . '"')->exists()) {

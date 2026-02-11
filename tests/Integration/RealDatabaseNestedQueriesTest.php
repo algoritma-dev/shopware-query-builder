@@ -197,10 +197,6 @@ class RealDatabaseNestedQueriesTest extends KernelAwareTestCase
 
         $result = $queryBuilder->limit(3)->get();
 
-        if ($result->count() < 3) {
-            $this->markTestSkipped('Not enough products for IN test');
-        }
-
         $ids = array_slice($result->getIds(), 0, 2);
 
         $queryBuilder2 = \sw_query(ProductEntity::class);
