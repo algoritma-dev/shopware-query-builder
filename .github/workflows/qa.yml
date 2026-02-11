@@ -47,13 +47,13 @@ jobs:
                     composer require shopware/core:${{ matrix.shopware }} --no-interaction --prefer-dist --no-progress --prefer-stable
 
             -   name: Run PHPStan
-                run: composer phpstan
+                run: ./vendor/bin/phpstan analyze --memory-limit=-1
 
             -   name: Run Rector (check)
-                run: composer rector-check
+                run: ./vendor/bin/rector process --dry-run
 
             -   name: Run PHP CS Fixer (check)
-                run: composer cs-check
+                run: ./vendor/bin/php-cs-fixer fix --dry-run --diff
 
             -   name: Run PHPUnit tests
-                run: composer phpunit
+                run: composer phpunit --testsuite unit
