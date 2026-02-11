@@ -3,9 +3,11 @@ includes:
 
 parameters:
 	level: 6
+	phpVersion: 80200
 	excludePaths:
 		- **/node_modules/*
 		- **/vendor/*
-		- tests
+	type_coverage:
+	    constant: 0
 
 
