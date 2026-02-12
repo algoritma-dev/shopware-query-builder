@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Algoritma\ShopwareQueryBuilder\Tests\Unit\QueryBuilder;
 
-use Algoritma\ShopwareQueryBuilder\Exception\EntityNotFoundException;
 use Algoritma\ShopwareQueryBuilder\Exception\UpdateEntityException;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\GroupExpression;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\RawExpressionParser;
@@ -283,7 +282,10 @@ class QueryBuilderTest extends TestCase
 
         $this->queryBuilder->whereBetween('price', 10, 100);
 
-        $expressions = $this->queryBuilder->getWhereExpressions();
+        $groups = $this->queryBuilder->getWhereExpressions();
+
+        self::assertInstanceOf(GroupExpression::class, $groups[0]);
+        $expressions = $groups[0]->getExpressions();
 
         $this->assertCount(2, $expressions);
         $this->assertSame('>=', $expressions[0]->getOperator());
@@ -398,26 +400,6 @@ class QueryBuilderTest extends TestCase
         $this->expectExceptionMessage('not configured for execution');
 
         $this->queryBuilder->get();
-    }
-
-    public function testGetOneOrThrowThrowsEntityNotFoundException(): void
-    {
-        $repository = $this->createMock(EntityRepository::class);
-        $context = $this->createMock(Context::class);
-
-        $searchResult = $this->createMock(EntitySearchResult::class);
-        $searchResult->method('first')->willReturn(null);
-
-        $repository
-            ->method('search')
-            ->willReturn($searchResult);
-
-        $this->queryBuilder->setRepository($repository);
-        $this->queryBuilder->setContext($context);
-
-        $this->expectException(EntityNotFoundException::class);
-
-        $this->queryBuilder->getOneOrThrow();
     }
 
     public function testCount(): void
@@ -671,132 +653,6 @@ class QueryBuilderTest extends TestCase
         $criteria = $this->queryBuilder->toCriteria();
 
         $this->assertInstanceOf(Criteria::class, $criteria);
-    }
-
-    // Debugging tests
-
-    public function testDebug(): void
-    {
-        $result = $this->queryBuilder->debug();
-
-        $this->assertSame($this->queryBuilder, $result);
-    }
-
-    public function testDump(): void
-    {
-        ob_start();
-        $result = $this->queryBuilder->dump();
-        $output = ob_get_clean();
-
-        $this->assertSame($this->queryBuilder, $result);
-        $this->assertStringContainsString('Query Builder Debug', $output);
-    }
-
-    public function testDd(): void
-    {
-        // dd() calls exit(1), which we cannot test in unit tests
-        // We just ensure the method is callable by checking it exists
-        $this->assertIsCallable($this->queryBuilder->dd(...));
-    }
-
-    public function testToDebugArray(): void
-    {
-        $this->propertyResolver
-            ->method('resolve')
-            ->willReturnArgument(1);
-
-        $this->queryBuilder
-            ->where('active = true')
-            ->limit(10)
-            ->orderBy('name');
-
-        $debugArray = $this->queryBuilder->toDebugArray();
-
-        $this->assertArrayHasKey('entity', $debugArray);
-        $this->assertArrayHasKey('where', $debugArray);
-        $this->assertArrayHasKey('limit', $debugArray);
-        $this->assertArrayHasKey('orderBy', $debugArray);
-        $this->assertSame(ProductEntity::class, $debugArray['entity']);
-        $this->assertSame(10, $debugArray['limit']);
-    }
-
-    public function testToDebugArrayWithAlias(): void
-    {
-        $this->queryBuilder->setAlias('p');
-
-        $debugArray = $this->queryBuilder->toDebugArray();
-
-        $this->assertSame('p', $debugArray['alias']);
-    }
-
-    public function testToDebugArrayWithAggregations(): void
-    {
-        $this->propertyResolver
-            ->method('resolve')
-            ->willReturnArgument(1);
-
-        $this->queryBuilder
-            ->addCount('id', 'total')
-            ->addSum('stock', 'totalStock');
-
-        $debugArray = $this->queryBuilder->toDebugArray();
-
-        $this->assertCount(2, $debugArray['aggregations']);
-        $this->assertContains('total', $debugArray['aggregations']);
-        $this->assertContains('totalStock', $debugArray['aggregations']);
-    }
-
-    public function testToDebugArrayWithTrashedFlags(): void
-    {
-        $this->queryBuilder->withTrashed();
-
-        $debugArray = $this->queryBuilder->toDebugArray();
-
-        $this->assertTrue($debugArray['withTrashed']);
-    }
-
-    public function testToDebugArrayWithOnlyTrashedFlag(): void
-    {
-        $this->queryBuilder->onlyTrashed();
-
-        $debugArray = $this->queryBuilder->toDebugArray();
-
-        $this->assertTrue($debugArray['onlyTrashed']);
-    }
-
-    public function testToDebugArrayWithOrWhereGroups(): void
-    {
-        $this->propertyResolver
-            ->method('resolve')
-            ->willReturnArgument(1);
-
-        $this->queryBuilder->orWhere(function (QueryBuilder $q): void {
-            $q->where('featured = true');
-        });
-
-        $debugArray = $this->queryBuilder->toDebugArray();
-
-        $this->assertIsArray($debugArray['orWhere']);
-        $this->assertCount(1, $debugArray['orWhere']);
-    }
-
-    public function testToDebugArrayWithGroupExpressions(): void
-    {
-        $this->propertyResolver
-            ->method('resolve')
-            ->willReturnArgument(1);
-
-        $this->queryBuilder->whereGroup(function (QueryBuilder $q): void {
-            $q->where('active = true')
-                ->where('stock > 0');
-        });
-
-        $debugArray = $this->queryBuilder->toDebugArray();
-
-        $this->assertCount(1, $debugArray['where']);
-        $this->assertSame('group', $debugArray['where'][0]['type']);
-        $this->assertSame('AND', $debugArray['where'][0]['operator']);
-        $this->assertIsArray($debugArray['where'][0]['group']);
     }
 
     // Additional execution method tests

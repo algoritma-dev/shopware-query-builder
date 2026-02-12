@@ -13,6 +13,7 @@ use Algoritma\ShopwareQueryBuilder\Filter\Expressions\GroupExpression;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\RawExpressionParser;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\WhereExpression;
 use Algoritma\ShopwareQueryBuilder\Filter\FilterFactory;
+use Algoritma\ShopwareQueryBuilder\Mapping\AliasResolver;
 use Algoritma\ShopwareQueryBuilder\Mapping\AssociationResolver;
 use Algoritma\ShopwareQueryBuilder\Mapping\EntityDefinitionResolver;
 use Algoritma\ShopwareQueryBuilder\Mapping\PropertyResolver;
@@ -31,10 +32,9 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\IdSearchResult;
 
 use function count;
-use function dump;
 
 /**
- * Fluent Query Builder for Shopware 6.7.
+ * Fluent Query Builder for Shopware 6.
  *
  * Provides an intuitive interface for building complex queries with:
  * - Type-safe property validation
@@ -44,8 +44,6 @@ use function dump;
  */
 class QueryBuilder
 {
-    private ?string $alias = null;
-
     /**
      * @var array<WhereExpression|GroupExpression>
      */
@@ -75,11 +73,6 @@ class QueryBuilder
     private ?int $perPage = null;
 
     /**
-     * @var array<string, string> Map of alias => association path
-     */
-    private array $aliasMap = [];
-
-    /**
      * @var array<string, CountAggregation|SumAggregation|AvgAggregation|MinAggregation|MaxAggregation>
      */
     private array $aggregations = [];
@@ -105,7 +98,8 @@ class QueryBuilder
         private readonly PropertyResolver $propertyResolver,
         private readonly AssociationResolver $associationResolver,
         private readonly FilterFactory $filterFactory,
-        private readonly RawExpressionParser $parser
+        private readonly RawExpressionParser $parser,
+        private ?AliasResolver $aliasResolver = null
     ) {
         // Validate entity class at construction
         $this->definitionResolver->getDefinition($this->entityClass);
@@ -115,6 +109,8 @@ class QueryBuilder
 
         // Initialize parameter bag
         $this->parameters = new ParameterBag();
+
+        $this->aliasResolver ??= new AliasResolver();
     }
 
     /**
@@ -122,7 +118,7 @@ class QueryBuilder
      */
     public function setAlias(string $alias): self
     {
-        $this->alias = $alias;
+        $this->aliasResolver->setMainEntityAlias($alias);
 
         return $this;
     }
@@ -222,19 +218,19 @@ class QueryBuilder
             return $this->autoCreateGroup($parsed);
         }
 
-        // Simple expression
-        $whereExpr = WhereExpression::fromRaw($expression, $this->parser);
+        // Simple expression - resolve field with alias (but don't validate yet, that happens later)
+        $condition = $parsed['conditions'][0];
+        $resolvedField = $this->resolveFieldAlias($condition['field']);
+
+        $whereExpr = new WhereExpression(
+            $resolvedField,
+            $condition['operator'],
+            $condition['value'],
+            $condition['raw']
+        );
         $this->whereExpressions[] = $whereExpr;
 
         return $this;
-    }
-
-    /**
-     * Alias for where() - for semantic clarity when using raw expressions.
-     */
-    public function whereRaw(string $expression): self
-    {
-        return $this->where($expression);
     }
 
     /**
@@ -265,7 +261,7 @@ class QueryBuilder
             );
 
             // Copy alias map to sub-query
-            $subQuery->aliasMap = $this->aliasMap;
+            $this->aliasResolver->copyTo($subQuery->aliasResolver);
 
             $expression($subQuery);
 
@@ -281,7 +277,7 @@ class QueryBuilder
             // Create GroupExpression for compound expression and add to OR groups
             $expressions = [];
             foreach ($parsed['conditions'] as $condition) {
-                $resolvedField = $this->resolvePropertyWithAlias($condition['field']);
+                $resolvedField = $this->resolveFieldAlias($condition['field']);
                 $expressions[] = new WhereExpression(
                     $resolvedField,
                     $condition['operator'],
@@ -294,7 +290,14 @@ class QueryBuilder
             ];
         } else {
             // Simple expression - add as single OR condition
-            $whereExpr = WhereExpression::fromRaw($expression, $this->parser);
+            $condition = $parsed['conditions'][0];
+            $resolvedField = $this->resolveFieldAlias($condition['field']);
+            $whereExpr = new WhereExpression(
+                $resolvedField,
+                $condition['operator'],
+                $condition['value'],
+                $condition['raw']
+            );
             $this->orWhereGroups[] = [$whereExpr];
         }
 
@@ -310,31 +313,26 @@ class QueryBuilder
      */
     public function with(string $association, string|callable|null $aliasOrCallback = null, ?callable $callback = null): self
     {
-        $associationInfo = $this->associationResolver->resolve($this->entityClass, $association);
+        $resolved = $this->aliasResolver->resolve($association);
+        $associationInfo = $this->associationResolver->resolve($this->entityClass, $resolved['path']);
 
-        // Determine if we have an alias or callback
         $associationAlias = null;
         $actualCallback = null;
 
         if (is_string($aliasOrCallback)) {
-            // Alias provided
             $associationAlias = $aliasOrCallback;
             $actualCallback = $callback;
         } elseif (is_callable($aliasOrCallback)) {
-            // Legacy callback approach
             $actualCallback = $aliasOrCallback;
         }
 
-        // Register alias if provided
         if ($associationAlias !== null) {
-            $this->aliasMap[$associationAlias] = $associationInfo['path'];
+            $this->aliasResolver->register($associationAlias, $associationInfo['path']);
         }
 
         if ($actualCallback === null) {
-            // Simple eager loading without filters
             $this->associations[$associationInfo['path']] = null;
         } else {
-            // Eager loading with sub-query
             $subQuery = new self(
                 $associationInfo['entity'],
                 $this->definitionResolver,
@@ -343,13 +341,6 @@ class QueryBuilder
                 $this->filterFactory,
                 $this->parser
             );
-
-            // Copy alias map to sub-query for nested access
-            $subQuery->aliasMap = $this->aliasMap;
-
-            if ($associationAlias !== null) {
-                $subQuery->setAlias($associationAlias);
-            }
 
             $actualCallback($subQuery);
             $this->associations[$associationInfo['path']] = $subQuery;
@@ -417,8 +408,7 @@ class QueryBuilder
      */
     public function whereBetween(string $property, string|int $min, string|int $max): self
     {
-        $this->where("{$property} >= {$min}");
-        $this->where("{$property} <= {$max}");
+        $this->where("{$property} >= {$min} AND {$property} <= {$max}");
 
         return $this;
     }
@@ -573,7 +563,7 @@ class QueryBuilder
         );
 
         // Copy alias map to sub-query
-        $subQuery->aliasMap = $this->aliasMap;
+        $this->aliasResolver->copyTo($subQuery->aliasResolver);
 
         $callback($subQuery);
 
@@ -596,8 +586,6 @@ class QueryBuilder
     {
         return $this->whereGroup($callback, 'OR');
     }
-
-    // Scope methods
 
     /**
      * Apply a scope to the query.
@@ -622,8 +610,6 @@ class QueryBuilder
 
         return $this;
     }
-
-    // Soft Deletes methods
 
     /**
      * Include soft-deleted entities in results.
@@ -655,62 +641,6 @@ class QueryBuilder
 
         return $this;
     }
-
-    // Debugging methods
-
-    /**
-     * Enable debug mode (prints query info on execution).
-     */
-    public function debug(): self
-    {
-        return $this;
-    }
-
-    /**
-     * Dump query information and continue execution.
-     */
-    public function dump(): self
-    {
-        $this->dumpQueryInfo();
-
-        return $this;
-    }
-
-    /**
-     * Dump query information and die.
-     */
-    public function dd(): never
-    {
-        $this->dumpQueryInfo();
-        exit(1);
-    }
-
-    /**
-     * Export query as array (for debugging/inspection).
-     *
-     * @return array{entity: string, alias: string|null, where: array<int, array<string, mixed>>, orWhere: array<int, array<int, array<string, mixed>>>, with: array<int, string>, orderBy: array<int, array{field: string, direction: string}>, limit: int|null, offset: int|null, aggregations: array<int, string>, withTrashed: bool, onlyTrashed: bool}
-     */
-    public function toDebugArray(): array
-    {
-        return [
-            'entity' => $this->entityClass,
-            'alias' => $this->alias,
-            'where' => $this->formatExpressionsForDebug($this->whereExpressions),
-            'orWhere' => \array_map(
-                $this->formatExpressionsForDebug(...),
-                $this->orWhereGroups
-            ),
-            'with' => array_keys($this->associations),
-            'orderBy' => $this->sortings,
-            'limit' => $this->limit,
-            'offset' => $this->offset,
-            'aggregations' => array_keys($this->aggregations),
-            'withTrashed' => $this->withTrashed,
-            'onlyTrashed' => $this->onlyTrashed,
-        ];
-    }
-
-    // Execution methods
 
     /**
      * Execute query and get EntitySearchResult.
@@ -780,22 +710,6 @@ class QueryBuilder
 
     /**
      * Get first entity or throw exception.
-     *
-     * @throws EntityNotFoundException
-     */
-    public function getOneOrThrow(): Entity
-    {
-        $entity = $this->getOneOrNull();
-
-        if (! $entity instanceof Entity) {
-            throw new EntityNotFoundException(sprintf('No entity found for %s with given criteria', $this->getShortClassName($this->entityClass)));
-        }
-
-        return $entity;
-    }
-
-    /**
-     * Alias for getOneOrNull.
      */
     public function first(): ?Entity
     {
@@ -809,7 +723,13 @@ class QueryBuilder
      */
     public function firstOrFail(): Entity
     {
-        return $this->getOneOrThrow();
+        $entity = $this->getOneOrNull();
+
+        if (! $entity instanceof Entity) {
+            throw new EntityNotFoundException(\sprintf('No entity found for %s with given criteria', $this->getShortClassName($this->entityClass)));
+        }
+
+        return $entity;
     }
 
     /**
@@ -871,8 +791,6 @@ class QueryBuilder
 
         return (new CriteriaBuilder($this->filterFactory))->build($this);
     }
-
-    // Getters for CriteriaBuilder
 
     public function getEntityClass(): string
     {
@@ -1014,90 +932,6 @@ class QueryBuilder
     }
 
     /**
-     * Format expressions for debug output.
-     *
-     * @param array<WhereExpression|GroupExpression> $expressions
-     *
-     * @return array<int, array{field?: string, operator?: string, value?: mixed, type?: string, group?: array<int, array<string, mixed>>}>
-     */
-    private function formatExpressionsForDebug(array $expressions): array
-    {
-        return \array_map(function (GroupExpression|WhereExpression $expr): array {
-            if ($expr instanceof GroupExpression) {
-                return [
-                    'type' => 'group',
-                    'operator' => $expr->getOperator(),
-                    'group' => $this->formatExpressionsForDebug($expr->getExpressions()),
-                ];
-            }
-
-            return [
-                'field' => $expr->getField(),
-                'operator' => $expr->getOperator(),
-                'value' => $expr->getValue(),
-            ];
-        }, $expressions);
-    }
-
-    /**
-     * Print query information to output.
-     */
-    private function dumpQueryInfo(): void
-    {
-        $data = $this->toDebugArray();
-
-        echo "\n=== Query Builder Debug ===\n";
-        echo "Entity: {$data['entity']}\n";
-
-        if ($data['alias'] !== null) {
-            echo "Alias: {$data['alias']}\n";
-        }
-
-        if ($data['where'] !== []) {
-            echo "\nWHERE Conditions:\n";
-            print_r($data['where']);
-        }
-
-        if ($data['orWhere'] !== []) {
-            echo "\nOR WHERE Groups:\n";
-            print_r($data['orWhere']);
-        }
-
-        if ($data['with'] !== []) {
-            echo "\nAssociations: " . implode(', ', $data['with']) . "\n";
-        }
-
-        if ($data['orderBy'] !== []) {
-            echo "\nOrder By:\n";
-            foreach ($data['orderBy'] as $sorting) {
-                echo "  - {$sorting['field']} {$sorting['direction']}\n";
-            }
-        }
-
-        if ($data['aggregations'] !== []) {
-            echo "\nAggregations: " . implode(', ', $data['aggregations']) . "\n";
-        }
-
-        if ($data['limit'] !== null) {
-            echo "\nLimit: {$data['limit']}\n";
-        }
-
-        if ($data['offset'] !== null) {
-            echo "Offset: {$data['offset']}\n";
-        }
-
-        if ($data['withTrashed']) {
-            echo "\nWith Trashed: Yes\n";
-        }
-
-        if ($data['onlyTrashed']) {
-            echo "Only Trashed: Yes\n";
-        }
-
-        echo "===========================\n\n";
-    }
-
-    /**
      * Apply soft delete filters based on flags.
      */
     private function applySoftDeleteFilters(): void
@@ -1114,8 +948,6 @@ class QueryBuilder
         }
     }
 
-    // Private helper methods
-
     /**
      * Auto-create GroupExpression from compound parsed expression.
      *
@@ -1126,8 +958,8 @@ class QueryBuilder
         $expressions = [];
 
         foreach ($parsed['conditions'] as $condition) {
-            // Resolve property with alias
-            $resolvedField = $this->resolvePropertyWithAlias($condition['field']);
+            // Resolve field alias (without validation)
+            $resolvedField = $this->resolveFieldAlias($condition['field']);
 
             $expressions[] = new WhereExpression(
                 $resolvedField,
@@ -1145,6 +977,28 @@ class QueryBuilder
         return $this;
     }
 
+    private function resolveField(string $field, bool $validate = true): string
+    {
+        $resolved = $this->aliasResolver->resolve($field);
+
+        if ($validate) {
+            return $this->propertyResolver->resolve(
+                $this->entityClass,
+                $resolved['path']
+            );
+        }
+
+        return $resolved['path'];
+    }
+
+    /**
+     * Resolve field alias only (no validation) - used when building expressions.
+     */
+    private function resolveFieldAlias(string $field): string
+    {
+        return $this->resolveField($field, false);
+    }
+
     /**
      * Resolve property name, handling aliases.
      *
@@ -1152,34 +1006,7 @@ class QueryBuilder
      */
     private function resolvePropertyWithAlias(string $property): string
     {
-        // Check if property starts with alias (e.g., 'p.active' or 'm.name')
-        if (str_contains($property, '.')) {
-            $parts = explode('.', $property, 2);
-            $potentialAlias = $parts[0];
-            $propertyPath = $parts[1];
-
-            // Check if this is a registered alias
-            if (isset($this->aliasMap[$potentialAlias])) {
-                // Resolve the alias to association path
-                $associationPath = $this->aliasMap[$potentialAlias];
-
-                // For nested properties after alias, we don't need PropertyResolver validation
-                // because it will be validated by Shopware at runtime
-                return $associationPath . '.' . $propertyPath;
-            }
-
-            // Check if it matches the main entity alias
-            if ($this->alias !== null && $potentialAlias === $this->alias) {
-                // It's a reference to main entity with alias, validate the property
-                return $this->propertyResolver->resolve($this->entityClass, $propertyPath);
-            }
-
-            // Not an alias, treat as nested property (e.g., 'manufacturer.name')
-            return $this->propertyResolver->resolve($this->entityClass, $property);
-        }
-
-        // Simple property without dots, validate normally
-        return $this->propertyResolver->resolve($this->entityClass, $property);
+        return $this->resolveField($property);
     }
 
     /**

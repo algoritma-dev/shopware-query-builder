@@ -244,6 +244,33 @@ class CriteriaBuilder
                 if ($subCriteria->getOffset() !== null) {
                     $associationCriteria->setOffset($subCriteria->getOffset());
                 }
+
+                // Merge nested associations from sub-query
+                foreach ($subCriteria->getAssociations() as $nestedPath => $nestedCriteria) {
+                    if ($nestedCriteria === null) {
+                        $associationCriteria->addAssociation($nestedPath);
+                    } else {
+                        // Copy nested criteria
+                        $associationCriteria->addAssociation($nestedPath);
+                        $nestedAssociation = $associationCriteria->getAssociation($nestedPath);
+
+                        foreach ($nestedCriteria->getFilters() as $filter) {
+                            $nestedAssociation->addFilter($filter);
+                        }
+
+                        foreach ($nestedCriteria->getSorting() as $sorting) {
+                            $nestedAssociation->addSorting($sorting);
+                        }
+
+                        if ($nestedCriteria->getLimit() !== null) {
+                            $nestedAssociation->setLimit($nestedCriteria->getLimit());
+                        }
+
+                        if ($nestedCriteria->getOffset() !== null) {
+                            $nestedAssociation->setOffset($nestedCriteria->getOffset());
+                        }
+                    }
+                }
             }
         }
     }

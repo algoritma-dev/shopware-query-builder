@@ -39,16 +39,6 @@ abstract class KernelAwareTestCase extends TestCase
         $this->databaseHelper->loadFixtures($this->context);
     }
 
-    protected function tearDown(): void
-    {
-        // Clear fixtures after each test
-        try {
-            $this->databaseHelper->clearFixtures($this->context);
-        } catch (\Throwable) {
-            // Silently ignore errors during teardown
-        }
-    }
-
     /**
      * Get a service from the container.
      */
@@ -86,6 +76,9 @@ abstract class KernelAwareTestCase extends TestCase
             $container->get('product.repository'),
             $container->get('category.repository'),
             $container->get('product_manufacturer.repository'),
+            $container->get('customer.repository'),
+            $container->get('country.repository'),
+            $container->get('payment_method.repository'),
         );
     }
 }
