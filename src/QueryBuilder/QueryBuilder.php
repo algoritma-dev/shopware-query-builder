@@ -13,6 +13,7 @@ use Algoritma\ShopwareQueryBuilder\Filter\Expressions\GroupExpression;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\RawExpressionParser;
 use Algoritma\ShopwareQueryBuilder\Filter\Expressions\WhereExpression;
 use Algoritma\ShopwareQueryBuilder\Filter\FilterFactory;
+use Algoritma\ShopwareQueryBuilder\Mapping\AliasResolver;
 use Algoritma\ShopwareQueryBuilder\Mapping\AssociationResolver;
 use Algoritma\ShopwareQueryBuilder\Mapping\EntityDefinitionResolver;
 use Algoritma\ShopwareQueryBuilder\Mapping\PropertyResolver;
@@ -43,8 +44,6 @@ use function count;
  */
 class QueryBuilder
 {
-    private ?string $alias = null;
-
     /**
      * @var array<WhereExpression|GroupExpression>
      */
@@ -74,11 +73,6 @@ class QueryBuilder
     private ?int $perPage = null;
 
     /**
-     * @var array<string, string> Map of alias => association path
-     */
-    private array $aliasMap = [];
-
-    /**
      * @var array<string, CountAggregation|SumAggregation|AvgAggregation|MinAggregation|MaxAggregation>
      */
     private array $aggregations = [];
@@ -104,7 +98,8 @@ class QueryBuilder
         private readonly PropertyResolver $propertyResolver,
         private readonly AssociationResolver $associationResolver,
         private readonly FilterFactory $filterFactory,
-        private readonly RawExpressionParser $parser
+        private readonly RawExpressionParser $parser,
+        private ?AliasResolver $aliasResolver = null
     ) {
         // Validate entity class at construction
         $this->definitionResolver->getDefinition($this->entityClass);
@@ -114,6 +109,8 @@ class QueryBuilder
 
         // Initialize parameter bag
         $this->parameters = new ParameterBag();
+
+        $this->aliasResolver ??= new AliasResolver();
     }
 
     /**
@@ -121,7 +118,7 @@ class QueryBuilder
      */
     public function setAlias(string $alias): self
     {
-        $this->alias = $alias;
+        $this->aliasResolver->setMainEntityAlias($alias);
 
         return $this;
     }
@@ -264,7 +261,7 @@ class QueryBuilder
             );
 
             // Copy alias map to sub-query
-            $subQuery->aliasMap = $this->aliasMap;
+            $this->aliasResolver->copyTo($subQuery->aliasResolver);
 
             $expression($subQuery);
 
@@ -316,43 +313,26 @@ class QueryBuilder
      */
     public function with(string $association, string|callable|null $aliasOrCallback = null, ?callable $callback = null): self
     {
-        // Check if the association starts with an alias (e.g., 'addressAlias.country')
-        $resolvedAssociation = $association;
-        if (str_contains($association, '.')) {
-            $parts = explode('.', $association, 2);
-            $potentialAlias = $parts[0];
+        $resolved = $this->aliasResolver->resolve($association);
+        $associationInfo = $this->associationResolver->resolve($this->entityClass, $resolved['path']);
 
-            // If the first part is a known alias, resolve it
-            if (isset($this->aliasMap[$potentialAlias])) {
-                $resolvedAssociation = $this->aliasMap[$potentialAlias] . '.' . $parts[1];
-            }
-        }
-
-        $associationInfo = $this->associationResolver->resolve($this->entityClass, $resolvedAssociation);
-
-        // Determine if we have an alias or callback
         $associationAlias = null;
         $actualCallback = null;
 
         if (is_string($aliasOrCallback)) {
-            // Alias provided
             $associationAlias = $aliasOrCallback;
             $actualCallback = $callback;
         } elseif (is_callable($aliasOrCallback)) {
-            // Legacy callback approach
             $actualCallback = $aliasOrCallback;
         }
 
-        // Register alias if provided
         if ($associationAlias !== null) {
-            $this->aliasMap[$associationAlias] = $associationInfo['path'];
+            $this->aliasResolver->register($associationAlias, $associationInfo['path']);
         }
 
         if ($actualCallback === null) {
-            // Simple eager loading without filters
             $this->associations[$associationInfo['path']] = null;
         } else {
-            // Eager loading with sub-query
             $subQuery = new self(
                 $associationInfo['entity'],
                 $this->definitionResolver,
@@ -361,13 +341,6 @@ class QueryBuilder
                 $this->filterFactory,
                 $this->parser
             );
-
-            // Copy alias map to sub-query for nested access
-            $subQuery->aliasMap = $this->aliasMap;
-
-            if ($associationAlias !== null) {
-                $subQuery->setAlias($associationAlias);
-            }
 
             $actualCallback($subQuery);
             $this->associations[$associationInfo['path']] = $subQuery;
@@ -590,7 +563,7 @@ class QueryBuilder
         );
 
         // Copy alias map to sub-query
-        $subQuery->aliasMap = $this->aliasMap;
+        $this->aliasResolver->copyTo($subQuery->aliasResolver);
 
         $callback($subQuery);
 
@@ -975,8 +948,6 @@ class QueryBuilder
         }
     }
 
-    // Private helper methods
-
     /**
      * Auto-create GroupExpression from compound parsed expression.
      *
@@ -1006,34 +977,26 @@ class QueryBuilder
         return $this;
     }
 
+    private function resolveField(string $field, bool $validate = true): string
+    {
+        $resolved = $this->aliasResolver->resolve($field);
+
+        if ($validate) {
+            return $this->propertyResolver->resolve(
+                $this->entityClass,
+                $resolved['path']
+            );
+        }
+
+        return $resolved['path'];
+    }
+
     /**
      * Resolve field alias only (no validation) - used when building expressions.
      */
     private function resolveFieldAlias(string $field): string
     {
-        // Check if field starts with alias (e.g., 'countryAlias.iso')
-        if (str_contains($field, '.')) {
-            $parts = explode('.', $field, 2);
-            $potentialAlias = $parts[0];
-            $propertyPath = $parts[1];
-
-            // Check if this is a registered alias
-            if (isset($this->aliasMap[$potentialAlias])) {
-                // Resolve the alias to association path
-                $associationPath = $this->aliasMap[$potentialAlias];
-
-                return $associationPath . '.' . $propertyPath;
-            }
-
-            // Check if it matches the main entity alias
-            if ($this->alias !== null && $potentialAlias === $this->alias) {
-                // It's a reference to main entity with alias
-                return $propertyPath;
-            }
-        }
-
-        // Return as-is - validation happens later in PropertyResolver if needed
-        return $field;
+        return $this->resolveField($field, false);
     }
 
     /**
@@ -1043,27 +1006,7 @@ class QueryBuilder
      */
     private function resolvePropertyWithAlias(string $property): string
     {
-        // First resolve any aliases
-        $resolved = $this->resolveFieldAlias($property);
-
-        // Then validate the property
-        // Check if property starts with alias (e.g., 'p.active' or 'm.name')
-        if (str_contains($resolved, '.')) {
-            $parts = explode('.', $resolved, 2);
-            $potentialAlias = $parts[0];
-
-            // Check if this is a registered alias
-            if (isset($this->aliasMap[$potentialAlias])) {
-                // Already resolved, return as-is
-                return $resolved;
-            }
-
-            // Not an alias, treat as nested property (e.g., 'manufacturer.name')
-            return $this->propertyResolver->resolve($this->entityClass, $resolved);
-        }
-
-        // Simple property without dots, validate normally
-        return $this->propertyResolver->resolve($this->entityClass, $resolved);
+        return $this->resolveField($property);
     }
 
     /**
