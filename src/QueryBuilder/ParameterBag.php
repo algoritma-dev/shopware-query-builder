@@ -10,12 +10,6 @@ use Algoritma\ShopwareQueryBuilder\Exception\InvalidParameterException;
  * Parameter bag for managing query parameters.
  *
  * Handles named parameters (e.g., :status, :minPrice) for secure query building.
- * Implements SOLID principles:
- * - Single Responsibility: Manages only parameter storage and retrieval
- * - Open/Closed: Open for extension through inheritance
- * - Liskov Substitution: Can be replaced with compatible implementations
- * - Interface Segregation: Minimal, focused interface
- * - Dependency Inversion: Depends on abstractions, not concretions
  */
 class ParameterBag
 {
