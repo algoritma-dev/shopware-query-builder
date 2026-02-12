@@ -1,0 +1,30 @@
+changelog:
+    enabled: true
+
+build:
+    zip:
+        composer:
+            enabled: false
+        assets:
+            enabled: false
+        pack:
+            excludes:
+                paths:
+                    - config
+                    - .castor.stub.php
+                    - .idea
+                    - .phpunit-coverage
+                    - .phpunit.cache
+                    - var
+                    - tests
+                    - composer.lock
+                    - vendor
+                    - docker-compose.yml
+                    - AGENTS.md
+                    - .php-cs-fixer.dist.php
+                    - rector.php
+                    - phpunit.xml
+                    - phpstan-algoritma-config.php
+                    - phpstan.neon
+                    - Makefile
+                    - .github

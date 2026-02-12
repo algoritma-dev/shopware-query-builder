@@ -1,7 +1,8 @@
 {
     "name": "algoritma/shopware-query-builder",
-    "description": "Fluent Query Builder for Shopware 6 - Intuitive, type-safe, and maintainable query construction",
-    "type": "shopware-bundle",
+    "version": "1.0.0",
+    "description": "A modern, fluent query builder for Shopware 6.7+ with zero configuration. Write intuitive SQL-like queries with automatic validation, alias support, and type safety for cleaner code.",
+    "type": "shopware-platform-plugin",
     "license": "MIT",
     "keywords": [
         "shopware",
@@ -43,7 +44,25 @@
         }
     },
     "extra": {
-        "shopware-bundle-class": "Algoritma\\ShopwareQueryBuilder\\ShopwareQueryBuilderBundle"
+        "copyright": "Algoritma srl",
+        "shopware-plugin-class": "Algoritma\\ShopwareQueryBuilder\\AlgoritmaShopwareQueryBuilder",
+        "shopware-bundle-class": "Algoritma\\ShopwareQueryBuilder\\ShopwareQueryBuilderBundle",
+        "label": {
+            "de-DE": "Shopware Query Builder",
+            "en-GB": "Shopware Query Builder"
+        },
+        "description": {
+            "de-DE": "Ein moderner Query Builder für Shopware 6.7+ ohne Konfiguration. Schreiben Sie intuitive SQL-ähnliche Abfragen mit automatischer Validierung, Alias-Unterstützung und Typsicherheit.",
+            "en-GB": "A modern, fluent query builder for Shopware 6.7+ with zero configuration. Write intuitive SQL-like queries with automatic validation, alias support, and type safety for cleaner code."
+        },
+        "manufacturerLink": {
+            "de-DE": "https://github.com/algoritma-dev/shopware-query-builder",
+            "en-GB": "https://github.com/algoritma-dev/shopware-query-builder"
+        },
+        "supportLink": {
+            "de-DE": "https://github.com/algoritma-dev/shopware-query-builder/issues",
+            "en-GB": "https://github.com/algoritma-dev/shopware-query-builder/issues"
+        }
     },
     "config": {
         "sort-packages": true,
@@ -75,6 +94,8 @@
             "@phpunit"
         ],
         "pre-commit": "@qa",
-        "phpunit": "phpunit -c phpunit.xml"
+        "phpunit": "phpunit -c phpunit.xml",
+        "format": "docker run --rm -v $(pwd):/ext shopware/shopware-cli:latest extension format /ext",
+        "check": "docker run --rm -v $(pwd):/ext shopware/shopware-cli:latest extension validate --full /ext"
     }
 }

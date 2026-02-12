@@ -950,6 +950,6 @@ Developed by [Algoritma](https://github.com/algoritma) for Shopware 6.7+
 ---
 
 **Last Updated:** 2026-02-11
-**Version:** 3.0.0
+**Version:** 1.0.0-dev
 **Target:** Shopware 6.7.x
 **PHP:** 8.2+

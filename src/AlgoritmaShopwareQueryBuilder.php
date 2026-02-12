@@ -4,17 +4,16 @@ declare(strict_types=1);
 
 namespace Algoritma\ShopwareQueryBuilder;
 
-use Shopware\Core\Framework\Bundle;
+use Shopware\Core\Framework\Plugin;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
- * Shopware Query Builder Bundle.
+ * Shopware Query Builder Plugin.
  *
- * Integrates the Query Builder library into Shopware 6.7+
- * Services are automatically loaded from Resources/config/services.xml
+ * Integrates the Query Builder library into Shopware 6
  */
-class ShopwareQueryBuilderBundle extends Bundle
+class AlgoritmaShopwareQueryBuilder extends Plugin
 {
     use ShopwareQueryBuilderTrait;
 
