@@ -31,10 +31,9 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\IdSearchResult;
 
 use function count;
-use function dump;
 
 /**
- * Fluent Query Builder for Shopware 6.7.
+ * Fluent Query Builder for Shopware 6.
  *
  * Provides an intuitive interface for building complex queries with:
  * - Type-safe property validation
@@ -238,14 +237,6 @@ class QueryBuilder
     }
 
     /**
-     * Alias for where() - for semantic clarity when using raw expressions.
-     */
-    public function whereRaw(string $expression): self
-    {
-        return $this->where($expression);
-    }
-
-    /**
      * Add OR WHERE condition using raw SQL-like expression or closure.
      *
      * Accepts two forms:
@@ -444,8 +435,7 @@ class QueryBuilder
      */
     public function whereBetween(string $property, string|int $min, string|int $max): self
     {
-        $this->where("{$property} >= {$min}");
-        $this->where("{$property} <= {$max}");
+        $this->where("{$property} >= {$min} AND {$property} <= {$max}");
 
         return $this;
     }
@@ -624,8 +614,6 @@ class QueryBuilder
         return $this->whereGroup($callback, 'OR');
     }
 
-    // Scope methods
-
     /**
      * Apply a scope to the query.
      */
@@ -649,8 +637,6 @@ class QueryBuilder
 
         return $this;
     }
-
-    // Soft Deletes methods
 
     /**
      * Include soft-deleted entities in results.
@@ -682,62 +668,6 @@ class QueryBuilder
 
         return $this;
     }
-
-    // Debugging methods
-
-    /**
-     * Enable debug mode (prints query info on execution).
-     */
-    public function debug(): self
-    {
-        return $this;
-    }
-
-    /**
-     * Dump query information and continue execution.
-     */
-    public function dump(): self
-    {
-        $this->dumpQueryInfo();
-
-        return $this;
-    }
-
-    /**
-     * Dump query information and die.
-     */
-    public function dd(): never
-    {
-        $this->dumpQueryInfo();
-        exit(1);
-    }
-
-    /**
-     * Export query as array (for debugging/inspection).
-     *
-     * @return array{entity: string, alias: string|null, where: array<int, array<string, mixed>>, orWhere: array<int, array<int, array<string, mixed>>>, with: array<int, string>, orderBy: array<int, array{field: string, direction: string}>, limit: int|null, offset: int|null, aggregations: array<int, string>, withTrashed: bool, onlyTrashed: bool}
-     */
-    public function toDebugArray(): array
-    {
-        return [
-            'entity' => $this->entityClass,
-            'alias' => $this->alias,
-            'where' => $this->formatExpressionsForDebug($this->whereExpressions),
-            'orWhere' => \array_map(
-                $this->formatExpressionsForDebug(...),
-                $this->orWhereGroups
-            ),
-            'with' => array_keys($this->associations),
-            'orderBy' => $this->sortings,
-            'limit' => $this->limit,
-            'offset' => $this->offset,
-            'aggregations' => array_keys($this->aggregations),
-            'withTrashed' => $this->withTrashed,
-            'onlyTrashed' => $this->onlyTrashed,
-        ];
-    }
-
-    // Execution methods
 
     /**
      * Execute query and get EntitySearchResult.
@@ -807,22 +737,6 @@ class QueryBuilder
 
     /**
      * Get first entity or throw exception.
-     *
-     * @throws EntityNotFoundException
-     */
-    public function getOneOrThrow(): Entity
-    {
-        $entity = $this->getOneOrNull();
-
-        if (! $entity instanceof Entity) {
-            throw new EntityNotFoundException(sprintf('No entity found for %s with given criteria', $this->getShortClassName($this->entityClass)));
-        }
-
-        return $entity;
-    }
-
-    /**
-     * Alias for getOneOrNull.
      */
     public function first(): ?Entity
     {
@@ -836,7 +750,13 @@ class QueryBuilder
      */
     public function firstOrFail(): Entity
     {
-        return $this->getOneOrThrow();
+        $entity = $this->getOneOrNull();
+
+        if (! $entity instanceof Entity) {
+            throw new EntityNotFoundException(\sprintf('No entity found for %s with given criteria', $this->getShortClassName($this->entityClass)));
+        }
+
+        return $entity;
     }
 
     /**
@@ -898,8 +818,6 @@ class QueryBuilder
 
         return (new CriteriaBuilder($this->filterFactory))->build($this);
     }
-
-    // Getters for CriteriaBuilder
 
     public function getEntityClass(): string
     {
@@ -1041,90 +959,6 @@ class QueryBuilder
     }
 
     /**
-     * Format expressions for debug output.
-     *
-     * @param array<WhereExpression|GroupExpression> $expressions
-     *
-     * @return array<int, array{field?: string, operator?: string, value?: mixed, type?: string, group?: array<int, array<string, mixed>>}>
-     */
-    private function formatExpressionsForDebug(array $expressions): array
-    {
-        return \array_map(function (GroupExpression|WhereExpression $expr): array {
-            if ($expr instanceof GroupExpression) {
-                return [
-                    'type' => 'group',
-                    'operator' => $expr->getOperator(),
-                    'group' => $this->formatExpressionsForDebug($expr->getExpressions()),
-                ];
-            }
-
-            return [
-                'field' => $expr->getField(),
-                'operator' => $expr->getOperator(),
-                'value' => $expr->getValue(),
-            ];
-        }, $expressions);
-    }
-
-    /**
-     * Print query information to output.
-     */
-    private function dumpQueryInfo(): void
-    {
-        $data = $this->toDebugArray();
-
-        echo "\n=== Query Builder Debug ===\n";
-        echo "Entity: {$data['entity']}\n";
-
-        if ($data['alias'] !== null) {
-            echo "Alias: {$data['alias']}\n";
-        }
-
-        if ($data['where'] !== []) {
-            echo "\nWHERE Conditions:\n";
-            print_r($data['where']);
-        }
-
-        if ($data['orWhere'] !== []) {
-            echo "\nOR WHERE Groups:\n";
-            print_r($data['orWhere']);
-        }
-
-        if ($data['with'] !== []) {
-            echo "\nAssociations: " . implode(', ', $data['with']) . "\n";
-        }
-
-        if ($data['orderBy'] !== []) {
-            echo "\nOrder By:\n";
-            foreach ($data['orderBy'] as $sorting) {
-                echo "  - {$sorting['field']} {$sorting['direction']}\n";
-            }
-        }
-
-        if ($data['aggregations'] !== []) {
-            echo "\nAggregations: " . implode(', ', $data['aggregations']) . "\n";
-        }
-
-        if ($data['limit'] !== null) {
-            echo "\nLimit: {$data['limit']}\n";
-        }
-
-        if ($data['offset'] !== null) {
-            echo "Offset: {$data['offset']}\n";
-        }
-
-        if ($data['withTrashed']) {
-            echo "\nWith Trashed: Yes\n";
-        }
-
-        if ($data['onlyTrashed']) {
-            echo "Only Trashed: Yes\n";
-        }
-
-        echo "===========================\n\n";
-    }
-
-    /**
      * Apply soft delete filters based on flags.
      */
     private function applySoftDeleteFilters(): void
@@ -1217,7 +1051,6 @@ class QueryBuilder
         if (str_contains($resolved, '.')) {
             $parts = explode('.', $resolved, 2);
             $potentialAlias = $parts[0];
-            $propertyPath = $parts[1];
 
             // Check if this is a registered alias
             if (isset($this->aliasMap[$potentialAlias])) {
