@@ -45,7 +45,7 @@
     },
     "extra": {
         "copyright": "Algoritma srl",
-        "shopware-plugin-class": "Algoritma\\ShopwareQueryBuilder\\AlgoritmaShopwareQueryBuilder",
+        "shopware-plugin-class": "Algoritma\\ShopwareQueryBuilder\\AlgoritmaSwQueryBuilder",
         "shopware-bundle-class": "Algoritma\\ShopwareQueryBuilder\\ShopwareQueryBuilderBundle",
         "label": {
             "de-DE": "Shopware Query Builder",

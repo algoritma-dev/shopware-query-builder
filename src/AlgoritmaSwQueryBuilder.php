@@ -13,7 +13,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  *
  * Integrates the Query Builder library into Shopware 6
  */
-class AlgoritmaShopwareQueryBuilder extends Plugin
+class AlgoritmaSwQueryBuilder extends Plugin
 {
     use ShopwareQueryBuilderTrait;
 
