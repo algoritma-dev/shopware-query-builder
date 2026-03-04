@@ -14,7 +14,7 @@ trait ShopwareQueryBuilderTrait
     {
         global $queryHelperServiceLocator;
 
-        if ($queryHelperServiceLocator === null && $container instanceof ContainerInterface) {
+        if ($queryHelperServiceLocator === null && $container?->has('algoritma.query_builder.service_locator')) {
             $queryHelperServiceLocator = $container->get('algoritma.query_builder.service_locator');
         }
     }
