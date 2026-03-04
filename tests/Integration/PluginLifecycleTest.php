@@ -11,6 +11,7 @@ use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\Plugin\PluginEntity;
 use Shopware\Core\Framework\Plugin\PluginLifecycleService;
 use Shopware\Core\Framework\Plugin\PluginService;
+use Shopware\Core\Framework\Test\TestCaseBase\DatabaseTransactionBehaviour;
 use Shopware\Core\Framework\Test\TestCaseBase\KernelTestBehaviour;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -18,6 +19,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 class PluginLifecycleTest extends TestCase
 {
     use KernelTestBehaviour;
+    use DatabaseTransactionBehaviour;
 
     private ContainerInterface $container;
 
@@ -51,6 +53,7 @@ class PluginLifecycleTest extends TestCase
             $this->pluginLifecycleService->installPlugin($plugin, $this->context);
             $plugin = $this->pluginService->getPluginByName($pluginName, $this->context);
             $this->assertNotNull($plugin->getInstalledAt(), 'Plugin should be installed');
+            $this->assertFalse($plugin->getActive(), 'Plugin should not be active after installation');
         }
 
         // 2. Activate
